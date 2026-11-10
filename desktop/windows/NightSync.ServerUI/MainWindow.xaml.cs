@@ -280,11 +280,46 @@ public partial class MainWindow : Window
         if (!online)
             throw new InvalidOperationException($"The service was registered but the server did not become ready (start code {startCode}). Check the activity log.");
 
-        _config.SetupComplete = true;
-        SaveConfig();
         ControlMessage.Text = "Background service is installed and running.";
         await RefreshStatusAsync();
         return true;
+    }
+
+    private async Task CreateOwnerAccountAsync(string username, string password)
+    {
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        var json = JsonSerializer.Serialize(new { username, password });
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("http://127.0.0.1:8787/api/v1/setup", content);
+        var responseText = await response.Content.ReadAsStringAsync();
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Created)
+        {
+            _config.SetupComplete = true;
+            SaveConfig();
+            ControlMessage.Text = "NightSync is ready. Your owner account has been created.";
+            return;
+        }
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            _config.SetupComplete = true;
+            SaveConfig();
+            ControlMessage.Text = "An existing account database was found. Sign in with the account you already use.";
+            return;
+        }
+
+        var reason = responseText;
+        try
+        {
+            using var document = JsonDocument.Parse(responseText);
+            reason = document.RootElement.TryGetProperty("error", out var error)
+                ? error.GetString() ?? responseText
+                : responseText;
+        }
+        catch { }
+
+        throw new InvalidOperationException("Could not create the owner account: " + reason);
     }
 
     private async Task RunSetupWizardAsync()
@@ -298,24 +333,19 @@ public partial class MainWindow : Window
 
             MainBox.Text = wizard.StoragePath;
             SaveConfig();
-            if (wizard.EnableBackgroundService)
+            try
             {
-                try { await InstallBackgroundServiceAsync(); }
-                catch (System.ComponentModel.Win32Exception)
-                {
-                    ControlMessage.Text = "Administrator approval was cancelled. The background service was not installed.";
-                }
-                catch (Exception ex)
-                {
-                    ControlMessage.Text = "Setup needs attention: " + ex.Message;
-                    MessageBox.Show(ex.Message, "NightSync setup", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
+                await InstallBackgroundServiceAsync();
+                await CreateOwnerAccountAsync(wizard.OwnerUsername, wizard.OwnerPassword);
             }
-            else
+            catch (System.ComponentModel.Win32Exception)
             {
-                _config.SetupComplete = true;
-                SaveConfig();
-                ControlMessage.Text = "Storage is configured. Enable the background service to start before sign-in.";
+                ControlMessage.Text = "Administrator approval was cancelled. The background service was not installed.";
+            }
+            catch (Exception ex)
+            {
+                ControlMessage.Text = "Setup needs attention: " + ex.Message;
+                MessageBox.Show(ex.Message, "NightSync setup", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         finally { _wizardRunning = false; }

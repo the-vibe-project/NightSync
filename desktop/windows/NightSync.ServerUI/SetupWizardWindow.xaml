@@ -49,6 +49,7 @@
         <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
           <TextBlock Text="NIGHTSYNC" Foreground="#69E5FF" FontSize="10" FontWeight="Bold"/>
           <TextBlock Text="Setup wizard" Foreground="#ECF7FF" FontSize="21" FontWeight="SemiBold" Margin="0,2,0,0"/>
+          <TextBlock Text="THE VIBE PROJECT" Foreground="#91A7C1" FontSize="8" FontWeight="Bold" Margin="0,3,0,0"/>
         </StackPanel>
       </StackPanel>
       <TextBlock x:Name="StepText" Text="STEP 01 / 03" Foreground="#91A7C1" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center"/>

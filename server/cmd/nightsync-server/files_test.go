@@ -209,3 +209,38 @@ func TestFileManagerRequiresAuthenticationAndRejectsOverwrite(t *testing.T) {
 		t.Fatalf("original file was changed after rejected overwrite: status=%d body=%q", download.Code, download.Body.String())
 	}
 }
+
+
+func TestFileManagerEmptyFileUploadAndOversizeRejection(t *testing.T) {
+	setupFileAPITest(t)
+
+	empty := callFileAPI(filesHandler, http.MethodPut, "/api/v1/files?path=empty.txt", "alice-token", nil)
+	if empty.Code != http.StatusCreated {
+		t.Fatalf("empty file upload should succeed; status=%d body=%s", empty.Code, empty.Body.String())
+	}
+	list := callFileAPI(filesHandler, http.MethodGet, "/api/v1/files", "alice-token", nil)
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), "\"empty.txt\"") || !strings.Contains(list.Body.String(), "\"size_bytes\":0") {
+		t.Fatalf("empty file should appear with zero size: status=%d body=%s", list.Code, list.Body.String())
+	}
+
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/files?path=too-large.bin", strings.NewReader("small body"))
+	request.Header.Set("Authorization", "Bearer alice-token")
+	request.ContentLength = 100*1024*1024 + 1
+	response := httptest.NewRecorder()
+	filesHandler(response, request)
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized upload should return 413; status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestFileManagerDuplicateFolderReturnsConflict(t *testing.T) {
+	setupFileAPITest(t)
+	first := callFileAPI(foldersHandler, http.MethodPost, "/api/v1/folders", "alice-token", []byte(`{"path":"Pictures"}`))
+	if first.Code != http.StatusCreated {
+		t.Fatalf("first folder create status=%d body=%s", first.Code, first.Body.String())
+	}
+	second := callFileAPI(foldersHandler, http.MethodPost, "/api/v1/folders", "alice-token", []byte(`{"path":"Pictures"}`))
+	if second.Code != http.StatusConflict {
+		t.Fatalf("duplicate folder should return 409; status=%d body=%s", second.Code, second.Body.String())
+	}
+}

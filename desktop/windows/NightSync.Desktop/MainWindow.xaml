@@ -128,8 +128,8 @@
             <Button Style="{StaticResource NavButtonStyle}" Content="◈   Overview" Click="Overview_Click"/>
             <Button Style="{StaticResource NavButtonStyle}" Content="⌁   Connect server" Click="Connect_Click"/>
             <Button Style="{StaticResource NavButtonStyle}" Content="▤   My files" Click="Files_Click"/>
-            <Button Style="{StaticResource NavButtonStyle}" Content="▧   Photos" Click="Photos_Click"/>
-            <Button Style="{StaticResource NavButtonStyle}" Content="≋   Activity logs" Click="Logs_Click"/>
+            <Button Style="{StaticResource NavButtonStyle}" Content="▧   Photos" Visibility="Collapsed" Click="Photos_Click"/>
+            <Button Style="{StaticResource NavButtonStyle}" Content="≋   Activity logs" Visibility="Collapsed" Click="Logs_Click"/>
             <Separator Margin="5,14,5,14" Background="#263B55"/>
           </StackPanel>
           <StackPanel DockPanel.Dock="Bottom">

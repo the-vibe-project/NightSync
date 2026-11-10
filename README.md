@@ -1,59 +1,59 @@
 # NightSync
 
-Free and open-source self-hosted NAS and personal cloud platform.
+Free and open-source self-hosted NAS and personal cloud.
 
-## Project status
+**Status: fresh development scaffold — not a production NAS and not yet security-reviewed.**
 
-**Early prototype / source scaffold. Not production-ready.**
+## Product direction
 
-This repository currently contains:
-- Android UI starter (Kotlin + Jetpack Compose).
-- Windows WPF desktop UI starter.
-- Go engine foundation with a localhost-only health endpoint and SQLite metadata schema.
-- Initial architecture notes.
-
-The current Android app does not yet connect to a server or upload files. The Windows desktop app and Go engine are foundations only. Authentication, secure remote access, actual file transfer/synchronization, encryption, Windows Service installation, SMB integration, media streaming, backup/restore, and NAS storage management are not yet implemented.
-
-Do not expose the current engine to the internet or store important data in it.
-
-## Product principles
-
-- Free to build, install and use; no subscriptions, ads, paid feature tiers, or mandatory hosted cloud.
-- Self-hosted first; LAN operation should not require an internet connection.
-- Windows server first; Linux server support is a future goal.
-- Separate server, Windows desktop, web, Android and iOS clients.
-- Storage modes: independent drives and supported Windows Storage Spaces pools.
-- SMB sharing through native Windows capabilities, never exposed directly to the public internet.
-- Built-in personal photo/audio/video library.
-- Backup destinations: local/external drives, another NightSync server, network storage, and future optional destinations.
-- Privacy, recoverability and security take priority over feature count.
+- NightSync Server: Windows background service (initial target).
+- NightSync Desktop: graphical Windows client and server administration.
+- NightSync Mobile: Android first; iOS later.
+- NightSync Web: browser-based administration and file access.
+- Storage: independent drives first; Windows Storage Spaces integration later.
+- SMB: Windows-native SMB integration, LAN use only; never expose SMB directly to the public internet.
+- Media: personal photo, audio and video library.
+- Backup: local/external drives, another NightSync server, network destinations; optional integrations later.
+- No subscriptions, ads, paid tiers or mandatory hosted cloud.
 
 ## Repository layout
 
 ```text
-.
-├── .github/workflows/       # Automated Android and Windows builds
-├── desktop/windows/         # Windows WPF client/admin starter
-├── mobile/android/          # Android client starter
-├── server/engine/           # Go server-engine foundation
-└── docs/                    # Architecture notes
+.github/workflows/       CI builds
+server/                  Go server foundation
+desktop/windows/         WPF Windows application
+mobile/android/          Android application
+docs/                    Architecture and development notes
 ```
 
-## Automated builds
+## Current capabilities
 
-Push to `main` or open a pull request to run the build workflows.
+- Android starter screen.
+- Windows desktop starter screen.
+- Go HTTP health endpoint bound to localhost.
+- Automated GitHub Actions build definitions for Android APK, Windows app and Go server executable.
 
-- Android: creates a debug APK artifact.
-- Windows: publishes a self-contained Windows x64 desktop executable folder as an artifact.
+## Not implemented yet
 
-These are development builds, not signed public-release installers. The Windows output is a self-contained publish package; it is not yet an MSI installer or a registered Windows service.
+Authentication, encryption, file transfer, synchronization, camera backup, NAS disk/pool management, SMB integration, media streaming, backup/restore, Windows Service installation, remote access, and production installers.
 
-## Local development requirements
+Do not expose the server to the internet or store important data in this scaffold.
 
-- Android: JDK 17, Android SDK 35, Gradle 8.11.1 or compatible.
+## Build outputs
+
+GitHub Actions uploads development artifacts:
+- `NightSync-Android-debug.apk`
+- `NightSync-Windows-x64` (self-contained publish folder)
+- `NightSync-Server-windows-x64.exe`
+
+These are unsigned development builds, not production releases.
+
+## Local requirements
+
+- Android: JDK 17 and Android SDK 35.
 - Windows desktop: .NET 8 SDK on Windows.
-- Engine: Go 1.23+.
+- Server: Go 1.23+.
 
-## License
+## Licence
 
-Intended project license: GNU AGPL-3.0-or-later. Add the official full-text `LICENSE` file to the GitHub repository before publishing. Third-party dependencies retain their own licences.
+GNU AGPL-3.0-or-later. Keep the repository's existing full AGPL-3.0 licence file when replacing the project contents. Do not replace it with a shortened notice.

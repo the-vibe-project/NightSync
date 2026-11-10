@@ -1,23 +1,43 @@
-# NightSync development status — v0.8.3
+# NightSync development status — 0.9.0
 
-## Implemented
-- Go server with local account setup, sign-in, password change, health/status endpoints, and basic local file list/upload/download/delete operations.
-- Windows Server UI with a premium dark interface, storage path selection, status polling, and activity log.
-- Windows Service Control Manager support. The Server UI can register the server for Automatic (Delayed Start) under LocalSystem, before a user signs in.
-- Windows service restart-on-failure recovery settings.
-- Windows desktop client and Android authentication foundation.
-- Android sync schedule screen with one, two, or three daily times and editable time pickers. Preferences are saved on the device.
+Publisher: The Vibe Project.
 
-## Not yet implemented
-- Remote/LAN access and TLS.
-- Phone-to-server file transfers.
-- A real sync worker, internet reconnect handling, offline queue, and conflict resolution.
-- Scheduled backup and restore.
-- Android background work that executes the selected sync times.
-- Camera upload, SMB, media streaming, recycle bin, and production security review.
+## Three-app structure
+- **NightSync Server** — one WPF app with bundled Go server engine, guided setup, host dashboard, and background Windows Service integration.
+- **NightSync for Windows** — WPF user client and private file manager.
+- **NightSync for Android** — Compose mobile client, private file manager, and locally saved schedule preferences.
 
-## Important connection limitation
-The server intentionally listens on `127.0.0.1:8787`. It is not reachable from another device. Keep it local; do not expose it to a LAN or the internet. Secure remote access must be completed before the Android app can synchronize with the host.
+## Implemented in the current prototype
+- Four-step first-run Server wizard: welcome, storage selection, Windows background service, and initial owner account.
+- Windows Service configuration for Automatic (Delayed Start), LocalSystem, and restart-on-failure.
+- Server health endpoint and host dashboard status/logging.
+- First-admin creation protected against concurrent first-run setup.
+- Server session logout and password-change flows.
+- Per-user private storage roots.
+- Folder list/navigation, create folder, upload, download, delete file, delete empty folder.
+- File path validation and symlink rejection; upload collision prevention; 100 MB upload cap.
+- Android sync schedule preferences for one, two, or three times per day.
+- The Vibe Project publisher branding across clients and Windows metadata.
 
-## Quality status
-GitHub Actions builds the Android APK, Windows desktop, Windows Server UI, and Windows server executable. The Windows service lifecycle passes a Windows-runner CI smoke test (register, start, health check, stop). A green CI test does not replace an actual install/reboot test on the target PC.
+## Current release blockers
+- Server binds only to `127.0.0.1:8787`. It is not remotely reachable by Android or another PC.
+- No TLS listener, secure remote pairing, or remote device authentication.
+- No actual sync worker, scheduled transfer execution, internet-reconnect retry, offline queue, or conflict handling.
+- Android schedule settings are stored locally and do not execute transfers.
+- Backup/restore, encryption at rest, recycle bin, SMB, media streaming, camera backup, iOS client, and security review are not implemented.
+
+## Automated QA
+GitHub Actions includes:
+- Go unit and customer-scenario API tests.
+- Windows service lifecycle smoke test.
+- Windows Server and Windows client launch smoke tests.
+- Android emulator launch/login tests.
+- Artifact creation for exactly three applications.
+
+A green CI run verifies the tested scenarios on hosted virtual devices. It does not verify a customer's real Windows boot configuration, storage drive permissions, router, or phone. Final release requires an install/reboot test on the target PC and an actual Android-to-server connection test once remote networking is implemented.
+
+## Data handling notes
+- Server account sessions are held in memory and are lost when the server restarts; users must sign in again.
+- User files are stored below the configured host storage directory in per-user subfolders.
+- The current prototype has no recycle bin; deleting a file is permanent.
+- Do not expose this local-development server to a LAN or the public internet.

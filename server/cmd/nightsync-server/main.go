@@ -96,6 +96,28 @@ func safeRelativePath(root, raw string) (string, error) {
 	return target, nil
 }
 
+func ensurePrivateDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if err == nil {
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("path is not a safe directory")
+		}
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+
+	if err := os.Mkdir(path, 0700); err != nil && !os.IsExist(err) {
+		return err
+	}
+	info, err = os.Lstat(path)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("path is not a safe directory")
+	}
+	return nil
+}
+
 func requestFileRoot(r *http.Request) (string, error) {
 	if auth == nil {
 		return "", errors.New("authentication is not ready")
@@ -105,21 +127,13 @@ func requestFileRoot(r *http.Request) (string, error) {
 		return "", errors.New("authentication required")
 	}
 	usersRoot := filepath.Join(dataDir, "users")
-	if err := os.MkdirAll(usersRoot, 0700); err != nil {
+	if err := ensurePrivateDirectory(usersRoot); err != nil {
 		return "", fmt.Errorf("cannot prepare private storage: %w", err)
-	}
-	usersInfo, err := os.Lstat(usersRoot)
-	if err != nil || !usersInfo.IsDir() || usersInfo.Mode()&os.ModeSymlink != 0 {
-		return "", errors.New("private storage root is not a safe directory")
 	}
 
 	root := filepath.Join(usersRoot, strings.ToLower(user.Username))
-	if err := os.MkdirAll(root, 0700); err != nil {
-		return "", fmt.Errorf("cannot prepare private storage: %w", err)
-	}
-	userInfo, err := os.Lstat(root)
-	if err != nil || !userInfo.IsDir() || userInfo.Mode()&os.ModeSymlink != 0 {
-		return "", errors.New("user storage root is not a safe directory")
+	if err := ensurePrivateDirectory(root); err != nil {
+		return "", fmt.Errorf("cannot prepare user storage: %w", err)
 	}
 	return root, nil
 }

@@ -16,10 +16,20 @@ public partial class App : Application
                 MessageBox.Show("Password changed. Please sign in again with your new password.", "NightSync");
                 continue;
             }
-            var main = new MainWindow();
-            MainWindow = main;
-            main.Show();
-            return;
+            try
+            {
+                var main = new MainWindow();
+                MainWindow = main;
+                main.Show();
+                return;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("NightSync signed in, but the main window could not be opened.\\n\\n" + ex,
+                    "NightSync startup error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+                return;
+            }
         }
     }
 }

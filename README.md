@@ -4,6 +4,13 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
+## v0.8.0 graphical server manager
+- Added a separate WPF NightSync Server UI with start/stop/restart, health polling, drive capacity, storage destination setup, logs and Windows sign-in auto-start.
+- Added a dedicated GitHub Actions artifact for the Server UI.
+- Added a visible startup error dialog to NightSync Desktop if the main window fails after login.
+
+See `docs/SERVER-UI.md` for installation steps.
+
 ## v0.7.1 build-fix package
 - Removed duplicate server setup panel declarations that caused WPF CS0102 build errors.
 - Windows server CI now runs `go mod tidy` before compiling, generating required module checksums (`go.sum`).

@@ -1,0 +1,9 @@
+<Application x:Class="NightSync.ServerUI.App"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <Application.Resources>
+  <SolidColorBrush x:Key="PanelBrush" Color="#111D31"/>
+  <SolidColorBrush x:Key="TextBrush" Color="#EAF1FB"/>
+  <SolidColorBrush x:Key="MutedBrush" Color="#AAB7CC"/>
+ </Application.Resources>
+</Application>

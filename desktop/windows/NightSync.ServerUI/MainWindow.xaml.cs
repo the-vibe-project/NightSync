@@ -24,7 +24,9 @@ public partial class MainWindow : Window
 
     private readonly string _root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NightSync");
     private string ConfigPath => Path.Combine(_root, "server-ui.json");
-    private string LogPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NightSync", "server.log");
+    private string UserLogPath => Path.Combine(_root, "server.log");
+    private string ServiceLogPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NightSync", "server.log");
+    private string CurrentLogPath => IsServiceInstalled() && File.Exists(ServiceLogPath) ? ServiceLogPath : UserLogPath;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(5) };
     private Config _config = new();
@@ -82,9 +84,10 @@ public partial class MainWindow : Window
     private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
 
     private string BuildArguments() =>
-        $"--storage {Quote(_config.MainPath)} --backup {Quote(_config.BackupPath)} --sync {Quote(_config.SyncPath)} --log-file {Quote(LogPath)}";
+        $"--storage {Quote(_config.MainPath)} --backup {Quote(_config.BackupPath)} --sync {Quote(_config.SyncPath)} --log-file {Quote(UserLogPath)}";
 
-    private string BuildServiceCommandLine() => $"{Quote(_config.ServerExe)} {BuildArguments()}";
+    private string BuildServiceCommandLine() =>
+        $"{Quote(_config.ServerExe)} --storage {Quote(_config.MainPath)} --backup {Quote(_config.BackupPath)} --sync {Quote(_config.SyncPath)} --log-file {Quote(ServiceLogPath)}";
 
     private static async Task<int> RunToolAsync(string fileName, IEnumerable<string> arguments, bool elevate)
     {
@@ -268,7 +271,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
             var aclCode = await RunToolAsync("icacls.exe",
                 [_config.MainPath, "/grant", "*S-1-5-18:(OI)(CI)M"], true);
             if (aclCode != 0)
@@ -371,17 +373,19 @@ public partial class MainWindow : Window
 
     private void OpenLog_Click(object sender, RoutedEventArgs e)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
-        if (!File.Exists(LogPath)) File.WriteAllText(LogPath, "NightSync activity will appear here.\n");
-        Process.Start(new ProcessStartInfo(LogPath) { UseShellExecute = true });
+        var logPath = CurrentLogPath;
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        if (!File.Exists(logPath)) File.WriteAllText(logPath, "NightSync activity will appear here.\n");
+        Process.Start(new ProcessStartInfo(logPath) { UseShellExecute = true });
     }
 
     private void LoadLog()
     {
         try
         {
-            if (!File.Exists(LogPath)) { LogBox.Text = "No activity yet."; return; }
-            LogBox.Text = string.Join(Environment.NewLine, File.ReadAllLines(LogPath).TakeLast(180));
+            var logPath = CurrentLogPath;
+            if (!File.Exists(logPath)) { LogBox.Text = "No activity yet."; return; }
+            LogBox.Text = string.Join(Environment.NewLine, File.ReadAllLines(logPath).TakeLast(180));
             LogBox.ScrollToEnd();
         }
         catch { LogBox.Text = "Activity log is unavailable."; }

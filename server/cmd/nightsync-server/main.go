@@ -44,7 +44,6 @@ func method(w http.ResponseWriter, r *http.Request, allowed string) bool {
 	return true
 }
 func safeRelativePath(root, raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return root, nil
 	}

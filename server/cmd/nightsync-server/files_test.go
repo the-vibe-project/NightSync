@@ -249,7 +249,8 @@ func TestFileManagerDuplicateFolderReturnsConflict(t *testing.T) {
 func TestRequestFileRootRejectsUsersRootSymlink(t *testing.T) {
 	setupFileAPITest(t)
 	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(dataDir, "users")); err != nil {
+	outsideTarget := filepath.Join(outside, "should-not-be-created")
+	if err := os.Symlink(outsideTarget, filepath.Join(dataDir, "users")); err != nil {
 		t.Skipf("symlink creation unavailable: %v", err)
 	}
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/files", nil)
@@ -257,12 +258,8 @@ func TestRequestFileRootRejectsUsersRootSymlink(t *testing.T) {
 	if root, err := requestFileRoot(request); err == nil || root != "" {
 		t.Fatalf("expected symlinked users root to be rejected, got root=%q err=%v", root, err)
 	}
-	entries, err := os.ReadDir(outside)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("server created data outside the configured storage root: %+v", entries)
+	if _, err := os.Lstat(outsideTarget); !os.IsNotExist(err) {
+		t.Fatalf("server created a directory through the dangling symlink: stat err=%v", err)
 	}
 }
 

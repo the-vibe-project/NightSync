@@ -234,7 +234,6 @@ public partial class MainWindow : Window
                 "New-Item -ItemType Directory -Force -Path " + PowerShellQuote(engineFolder) + " | Out-Null; " +
                 "Copy-Item -LiteralPath " + PowerShellQuote(stagedEngine) + " -Destination " + PowerShellQuote(EnginePath) + " -Force; " +
                 "if (-not (Test-Path -LiteralPath " + PowerShellQuote(EnginePath) + ")) { throw 'The NightSync engine file was not installed.' }; " +
-                "if ($null -ne (Get-Item -LiteralPath " + PowerShellQuote(EnginePath) + ")) { } " +
                 "& icacls.exe " + PowerShellQuote(_config.MainPath) + " '/grant' '*S-1-5-18:(OI)(CI)M' '/T' '/C' | Out-Null; " +
                 "if ($LASTEXITCODE -ne 0) { throw 'Windows could not grant the service access to the storage folder.' }; " +
                 "if ($null -ne $service) { " +

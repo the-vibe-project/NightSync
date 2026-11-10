@@ -249,7 +249,7 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		defer f.Close()
 		name := filepath.Base(target)
-		disposition, _ := mime.FormatMediaType("attachment", map[string]string{"filename": name})
+		disposition := mime.FormatMediaType("attachment", map[string]string{"filename": name})
 		w.Header().Set("Content-Disposition", disposition)
 		http.ServeContent(w, r, name, info.ModTime(), f)
 	case http.MethodDelete:

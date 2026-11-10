@@ -424,6 +424,7 @@ func runServer() error {
 	protected.Handle("/api/v1/files/", authMiddleware(mux))
 	protected.Handle("/api/v1/file", authMiddleware(mux))
 	protected.Handle("/api/v1/folders", authMiddleware(mux))
+	protected.Handle("/api/v1/logout", authMiddleware(mux))
 	protected.Handle("/api/v1/setup", mux)
 	protected.Handle("/api/v1/login", mux)
 	protected.Handle("/api/v1/me", mux)

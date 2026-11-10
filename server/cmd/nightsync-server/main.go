@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 	"time"
 )
 
-const version = "0.7.0"
+const version = "0.8.3"
 
 var startedAt = time.Now()
 var dataDir string
@@ -140,9 +141,23 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func main() {
+	isService, serviceErr := runAsWindowsService()
+	if serviceErr != nil {
+		log.Printf("cannot start Windows service host: %v", serviceErr)
+		os.Exit(1)
+	}
+	if isService {
+		return
+	}
+	if err := runServer(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func runServer() error {
 	exe, err := os.Executable()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defaultData := filepath.Join(filepath.Dir(exe), "NightSyncData")
 	storageFlag := flag.String("storage", defaultData, "Primary NightSync file storage directory")
@@ -153,23 +168,23 @@ func main() {
 	flag.Parse()
 	dataDir, err = filepath.Abs(*storageFlag)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	backupDir = *backupFlag
 	syncDir = *syncFlag
 	if *addrFlag != "127.0.0.1:8787" && *addrFlag != "localhost:8787" {
-		log.Fatal("this development build is restricted to localhost; remote/LAN binding is disabled")
+		return errors.New("this development build is restricted to localhost; remote/LAN binding is disabled")
 	}
 	if err = os.MkdirAll(dataDir, 0700); err != nil {
-		log.Fatalf("cannot create storage folder: %v", err)
+		return fmt.Errorf("cannot create storage folder: %w", err)
 	}
 	if *logFileFlag != "" {
 		if err = os.MkdirAll(filepath.Dir(*logFileFlag), 0700); err != nil {
-			log.Fatalf("cannot create log directory: %v", err)
+			return fmt.Errorf("cannot create log directory: %w", err)
 		}
 		lf, openErr := os.OpenFile(*logFileFlag, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 		if openErr != nil {
-			log.Fatalf("cannot open log file: %v", openErr)
+			return fmt.Errorf("cannot open log file: %w", openErr)
 		}
 		defer lf.Close()
 		log.SetOutput(lf)
@@ -206,7 +221,7 @@ func main() {
 
 	auth, err = newAuthStore(dataDir)
 	if err != nil {
-		log.Fatalf("cannot load users: %v", err)
+		return fmt.Errorf("cannot load users: %w", err)
 	}
 	authRoutes(mux)
 	protected := http.NewServeMux()
@@ -237,7 +252,8 @@ func main() {
 		_ = srv.Shutdown(ctx)
 	}()
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+		return err
 	}
 	log.Printf("NightSync Server stopped")
+	return nil
 }

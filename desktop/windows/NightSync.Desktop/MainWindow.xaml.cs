@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private readonly string _profilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NightSync", "servers.json");
     private string _serverAddress = "http://127.0.0.1:8787";
+    private string _currentFolder = "";
     private Process? _serverProcess;
     private readonly string _serverLogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NightSync", "server.log");
     private readonly string _hostConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NightSync", "host-config.json");
@@ -338,38 +340,101 @@ public partial class MainWindow : Window
     }
 
     private async void RefreshFiles_Click(object sender, RoutedEventArgs e) => await LoadFilesAsync();
+
     private async Task LoadFilesAsync()
     {
         try
         {
             _serverAddress = CurrentAddress();
-            using var response = await _http.GetAsync(_serverAddress + "/api/v1/files");
+            var url = _serverAddress + "/api/v1/files?path=" + Uri.EscapeDataString(_currentFolder);
+            using var response = await _http.GetAsync(url);
             response.EnsureSuccessStatusCode();
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             FilesList.Items.Clear();
             foreach (var item in doc.RootElement.GetProperty("items").EnumerateArray())
             {
                 var name = item.GetProperty("name").GetString() ?? "";
-                var size = FormatBytes(item.GetProperty("size_bytes").GetInt64());
-                FilesList.Items.Add(new RemoteFile(name, $"{name}  ·  {size}"));
+                var path = item.GetProperty("path").GetString() ?? name;
+                var isDirectory = item.GetProperty("is_dir").GetBoolean();
+                var size = item.GetProperty("size_bytes").GetInt64();
+                var modified = item.GetProperty("modified").GetDateTimeOffset().LocalDateTime;
+                FilesList.Items.Add(new RemoteFile(name, path, isDirectory, size, modified));
             }
-            FilesMessage.Text = $"{FilesList.Items.Count} file(s) in server storage.";
+            FilesBreadcrumb.Text = string.IsNullOrWhiteSpace(_currentFolder)
+                ? "My files"
+                : "My files  /  " + _currentFolder.Replace("/", "  /  ");
+            FilesMessage.Text = $"{FilesList.Items.Count} item(s) in this folder.";
         }
-        catch (Exception ex) { FilesMessage.Text = ex.Message; }
+        catch (Exception ex)
+        {
+            FilesMessage.Text = "Could not load this folder: " + ex.Message;
+        }
+    }
+
+    private async void FilesBack_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_currentFolder)) return;
+        var parts = _currentFolder.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        _currentFolder = parts.Length <= 1 ? "" : string.Join("/", parts[..^1]);
+        await LoadFilesAsync();
+    }
+
+    private async void FilesList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (FilesList.SelectedItem is not RemoteFile selected) return;
+        if (!selected.IsDirectory) return;
+        _currentFolder = selected.Path;
+        await LoadFilesAsync();
+    }
+
+    private async void CreateFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var name = NewFolderName.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name) || name.Contains('/') || name.Contains('\\') || name is "." or "..")
+        {
+            FilesMessage.Text = "Enter a valid folder name.";
+            return;
+        }
+
+        var path = string.IsNullOrWhiteSpace(_currentFolder) ? name : _currentFolder + "/" + name;
+        try
+        {
+            _serverAddress = CurrentAddress();
+            using var content = new StringContent(JsonSerializer.Serialize(new { path }), Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync(_serverAddress + "/api/v1/folders", content);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                FilesMessage.Text = "A file or folder with that name already exists.";
+                return;
+            }
+            response.EnsureSuccessStatusCode();
+            NewFolderName.Text = "";
+            FilesMessage.Text = "Folder created.";
+            await LoadFilesAsync();
+        }
+        catch (Exception ex) { FilesMessage.Text = "Could not create folder: " + ex.Message; }
     }
 
     private async void UploadFile_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Title = "Select a test file to upload" };
+        var dialog = new OpenFileDialog { Title = "Choose a file to upload", Multiselect = false };
         if (dialog.ShowDialog() != true) return;
         try
         {
             _serverAddress = CurrentAddress();
-            var name = Path.GetFileName(dialog.FileName);
-            using var content = new StreamContent(File.OpenRead(dialog.FileName));
-            using var response = await _http.PutAsync($"{_serverAddress}/api/v1/files?name={Uri.EscapeDataString(name)}", content);
+            var fileName = Path.GetFileName(dialog.FileName);
+            var path = string.IsNullOrWhiteSpace(_currentFolder) ? fileName : _currentFolder + "/" + fileName;
+            await using var fileStream = File.OpenRead(dialog.FileName);
+            using var content = new StreamContent(fileStream);
+            using var response = await _http.PutAsync(
+                _serverAddress + "/api/v1/files?path=" + Uri.EscapeDataString(path), content);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                FilesMessage.Text = "A file or folder with that name already exists. Rename the local file or remove the existing item first.";
+                return;
+            }
             response.EnsureSuccessStatusCode();
-            FilesMessage.Text = $"Uploaded {name}.";
+            FilesMessage.Text = $"Uploaded {fileName}.";
             await LoadFilesAsync();
         }
         catch (Exception ex) { FilesMessage.Text = "Upload failed: " + ex.Message; }
@@ -377,14 +442,22 @@ public partial class MainWindow : Window
 
     private async void DownloadFile_Click(object sender, RoutedEventArgs e)
     {
-        if (FilesList.SelectedItem is not RemoteFile file) { FilesMessage.Text = "Select a file first."; return; }
-        var dialog = new SaveFileDialog { FileName = file.Name };
+        if (FilesList.SelectedItem is not RemoteFile file || file.IsDirectory)
+        {
+            FilesMessage.Text = "Select a file to download.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog { FileName = file.Name, Title = "Save downloaded file" };
         if (dialog.ShowDialog() != true) return;
         try
         {
             _serverAddress = CurrentAddress();
-            var bytes = await _http.GetByteArrayAsync($"{_serverAddress}/api/v1/files/{Uri.EscapeDataString(file.Name)}");
-            await File.WriteAllBytesAsync(dialog.FileName, bytes);
+            var url = _serverAddress + "/api/v1/file?path=" + Uri.EscapeDataString(file.Path);
+            using var response = await _http.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            await using var destination = File.Create(dialog.FileName);
+            await response.Content.CopyToAsync(destination);
             FilesMessage.Text = $"Downloaded {file.Name}.";
         }
         catch (Exception ex) { FilesMessage.Text = "Download failed: " + ex.Message; }
@@ -392,14 +465,31 @@ public partial class MainWindow : Window
 
     private async void DeleteFile_Click(object sender, RoutedEventArgs e)
     {
-        if (FilesList.SelectedItem is not RemoteFile file) { FilesMessage.Text = "Select a file first."; return; }
-        if (MessageBox.Show($"Delete {file.Name} from server storage?", "Confirm delete", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (FilesList.SelectedItem is not RemoteFile item)
+        {
+            FilesMessage.Text = "Select a file or folder first.";
+            return;
+        }
+        var message = item.IsDirectory
+            ? $"Delete the empty folder “{item.Name}”?"
+            : $"Delete “{item.Name}” from your private storage?";
+        if (MessageBox.Show(message, "Confirm deletion", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
         try
         {
             _serverAddress = CurrentAddress();
-            using var response = await _http.DeleteAsync($"{_serverAddress}/api/v1/files/{Uri.EscapeDataString(file.Name)}");
+            var url = item.IsDirectory
+                ? _serverAddress + "/api/v1/folders?path=" + Uri.EscapeDataString(item.Path)
+                : _serverAddress + "/api/v1/file?path=" + Uri.EscapeDataString(item.Path);
+            using var response = await _http.DeleteAsync(url);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                FilesMessage.Text = "This folder is not empty. Remove its contents first.";
+                return;
+            }
             response.EnsureSuccessStatusCode();
-            FilesMessage.Text = $"Deleted {file.Name}.";
+            FilesMessage.Text = item.IsDirectory ? "Folder deleted." : "File deleted.";
             await LoadFilesAsync();
         }
         catch (Exception ex) { FilesMessage.Text = "Delete failed: " + ex.Message; }
@@ -412,4 +502,32 @@ public sealed class ServerProfile
     public string Address { get; set; } = "";
     public override string ToString() => Name;
 }
-public sealed record RemoteFile(string Name, string Display) { public override string ToString() => Display; }
+public sealed class RemoteFile
+{
+    public string Name { get; }
+    public string Path { get; }
+    public bool IsDirectory { get; }
+    public long SizeBytes { get; }
+    public DateTime Modified { get; }
+    public string Kind => IsDirectory ? "Folder" : "File";
+    public string SizeText => IsDirectory ? "—" : FormatSize(SizeBytes);
+    public string ModifiedText => Modified.ToString("dd MMM yyyy  HH:mm");
+
+    public RemoteFile(string name, string path, bool isDirectory, long sizeBytes, DateTime modified)
+    {
+        Name = name;
+        Path = path;
+        IsDirectory = isDirectory;
+        SizeBytes = sizeBytes;
+        Modified = modified;
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double size = Math.Max(0, bytes);
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1) { size /= 1024; unit++; }
+        return $"{size:0.##} {units[unit]}";
+    }
+}

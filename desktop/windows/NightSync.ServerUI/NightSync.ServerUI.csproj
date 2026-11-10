@@ -5,8 +5,13 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>NightSync.ServerUI</AssemblyName>
-    <Version>0.8.3</Version>
+    <AssemblyName>NightSync.Server</AssemblyName>
+    <Version>0.9.0</Version>
     <RootNamespace>NightSync.ServerUI</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\NightSync.Server.Engine.exe"
+                      LogicalName="NightSync.Server.Engine.exe"
+                      Condition="Exists('Resources\NightSync.Server.Engine.exe')" />
+  </ItemGroup>
 </Project>

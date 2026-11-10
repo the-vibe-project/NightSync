@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -149,8 +148,5 @@ func TestUserStorageDoesNotFollowSymlink(t *testing.T) {
 	}
 	if _, err := safeRelativePath(root, "link/secret.txt"); err == nil {
 		t.Fatal("expected symlink traversal to be rejected")
-	}
-	if _, err := io.ReadAll(strings.NewReader("smoke")); err != nil {
-		t.Fatal(err)
 	}
 }

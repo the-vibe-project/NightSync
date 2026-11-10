@@ -120,34 +120,6 @@ public partial class MainWindow : Window
         return process.ExitCode;
     }
 
-    private async Task<int> InstallEmbeddedEngineAsync()
-    {
-        var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("NightSync.Server.Engine.exe");
-        if (resource is null)
-            throw new InvalidOperationException("The server engine is missing from this build. Download the complete NightSync Server package again.");
-
-        var tempEngine = Path.Combine(Path.GetTempPath(), "NightSync.Server.Engine." + Guid.NewGuid().ToString("N") + ".exe");
-        try
-        {
-            await using (resource)
-            await using (var output = File.Create(tempEngine))
-                await resource.CopyToAsync(output);
-
-            var engineFolder = Path.GetDirectoryName(EnginePath)!;
-            var script = "$ErrorActionPreference='Stop'; " +
-                         "New-Item -ItemType Directory -Force -Path " + PowerShellQuote(engineFolder) + " | Out-Null; " +
-                         "New-Item -ItemType Directory -Force -Path " + PowerShellQuote(_programRoot) + " | Out-Null; " +
-                         "Copy-Item -LiteralPath " + PowerShellQuote(tempEngine) + " -Destination " + PowerShellQuote(EnginePath) + " -Force";
-            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
-            return await RunToolAsync("powershell.exe",
-                ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], true);
-        }
-        finally
-        {
-            try { if (File.Exists(tempEngine)) File.Delete(tempEngine); } catch { }
-        }
-    }
-
     private async Task<bool> IsOnlineAsync()
     {
         try
@@ -235,50 +207,67 @@ public partial class MainWindow : Window
         SaveConfig();
         ControlMessage.Text = "Preparing the NightSync engine…";
 
-        var copyCode = await InstallEmbeddedEngineAsync();
-        if (copyCode != 0 || !File.Exists(EnginePath))
-            throw new InvalidOperationException($"Windows could not install the bundled server engine (code {copyCode}).");
+        var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("NightSync.Server.Engine.exe");
+        if (resource is null)
+            throw new InvalidOperationException("The bundled server engine is missing. Download the complete NightSync Server package again.");
 
-        ControlMessage.Text = "Granting the background service access to storage…";
-        var aclCode = await RunToolAsync("icacls.exe",
-            [_config.MainPath, "/grant", "*S-1-5-18:(OI)(CI)M", "/T", "/C"], true);
-        if (aclCode != 0)
-            throw new InvalidOperationException($"Windows could not grant the background service access to main storage (code {aclCode}).");
-
-        if (IsServiceInstalled())
+        var stagedEngine = Path.Combine(Path.GetTempPath(), "NightSync.Server.Engine." + Guid.NewGuid().ToString("N") + ".exe");
+        try
         {
-            await RunToolAsync("sc.exe", ["stop", ServiceName], true);
-            await WaitForServerStateAsync(false, 12);
+            await using (resource)
+            await using (var output = File.Create(stagedEngine))
+                await resource.CopyToAsync(output);
+
+            var engineFolder = Path.GetDirectoryName(EnginePath)!;
+            var commandLine = BuildServiceCommandLine();
+            var script = "$ErrorActionPreference = 'Stop'; " +
+                "$serviceName = " + PowerShellQuote(ServiceName) + "; " +
+                "$service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue; " +
+                "if ($null -ne $service -and $service.Status -ne 'Stopped') { " +
+                    "& sc.exe stop $serviceName | Out-Null; " +
+                    "$deadline = (Get-Date).AddSeconds(25); " +
+                    "do { Start-Sleep -Milliseconds 500; $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue; } " +
+                    "while ($null -ne $service -and $service.Status -ne 'Stopped' -and (Get-Date) -lt $deadline); " +
+                    "if ($null -ne $service -and $service.Status -ne 'Stopped') { throw 'The existing NightSync service did not stop.' } " +
+                "} " +
+                "New-Item -ItemType Directory -Force -Path " + PowerShellQuote(_programRoot) + " | Out-Null; " +
+                "New-Item -ItemType Directory -Force -Path " + PowerShellQuote(engineFolder) + " | Out-Null; " +
+                "Copy-Item -LiteralPath " + PowerShellQuote(stagedEngine) + " -Destination " + PowerShellQuote(EnginePath) + " -Force; " +
+                "if (-not (Test-Path -LiteralPath " + PowerShellQuote(EnginePath) + ")) { throw 'The NightSync engine file was not installed.' }; " +
+                "if ($null -ne (Get-Item -LiteralPath " + PowerShellQuote(EnginePath) + ")) { } " +
+                "& icacls.exe " + PowerShellQuote(_config.MainPath) + " '/grant' '*S-1-5-18:(OI)(CI)M' '/T' '/C' | Out-Null; " +
+                "if ($LASTEXITCODE -ne 0) { throw 'Windows could not grant the service access to the storage folder.' }; " +
+                "if ($null -ne $service) { " +
+                    "& sc.exe config $serviceName 'binPath=' " + PowerShellQuote(commandLine) + " 'start=' 'delayed-auto' 'obj=' 'LocalSystem' | Out-Null; " +
+                "} else { " +
+                    "& sc.exe create $serviceName 'binPath=' " + PowerShellQuote(commandLine) + " 'start=' 'delayed-auto' 'obj=' 'LocalSystem' 'DisplayName=' 'NightSync Server' | Out-Null; " +
+                "} " +
+                "if ($LASTEXITCODE -ne 0) { throw 'Windows could not register the NightSync background service.' }; " +
+                "& sc.exe description $serviceName 'NightSync private cloud server' | Out-Null; " +
+                "if ($LASTEXITCODE -ne 0) { throw 'Windows could not set the NightSync service description.' }; " +
+                "& sc.exe failure $serviceName 'reset=' '86400' 'actions=' 'restart/5000/restart/10000/restart/30000' | Out-Null; " +
+                "if ($LASTEXITCODE -ne 0) { throw 'Windows could not configure NightSync service recovery.' }; " +
+                "& sc.exe failureflag $serviceName '1' | Out-Null; " +
+                "if ($LASTEXITCODE -ne 0) { throw 'Windows could not enable NightSync service recovery.' }; " +
+                "& sc.exe start $serviceName | Out-Null; " +
+                "if ($LASTEXITCODE -ne 0) { throw 'Windows could not start the NightSync background service.' }";
+
+            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            ControlMessage.Text = "Installing the engine and enabling background startup…";
+            var installCode = await RunToolAsync("powershell.exe",
+                ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], true);
+            if (installCode != 0)
+                throw new InvalidOperationException($"Windows could not complete background service setup (code {installCode}).");
+        }
+        finally
+        {
+            try { if (File.Exists(stagedEngine)) File.Delete(stagedEngine); } catch { }
         }
 
-        ControlMessage.Text = "Registering the Windows background service…";
-        var serviceArgs = new List<string>
-        {
-            IsServiceInstalled() ? "config" : "create",
-            ServiceName,
-            "binPath=", BuildServiceCommandLine(),
-            "start=", "delayed-auto",
-            "obj=", "LocalSystem"
-        };
-        if (!IsServiceInstalled())
-        {
-            serviceArgs.Add("DisplayName=");
-            serviceArgs.Add("NightSync Server");
-        }
-
-        var configCode = await RunToolAsync("sc.exe", serviceArgs, true);
-        if (configCode != 0)
-            throw new InvalidOperationException($"Windows could not register the background service (code {configCode}).");
-
-        await RunToolAsync("sc.exe", ["description", ServiceName, "NightSync private cloud server"], true);
-        await RunToolAsync("sc.exe", ["failure", ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/10000/restart/30000"], true);
-        await RunToolAsync("sc.exe", ["failureflag", ServiceName, "1"], true);
-
-        ControlMessage.Text = "Starting NightSync in the background…";
-        var startCode = await RunToolAsync("sc.exe", ["start", ServiceName], true);
+        ControlMessage.Text = "Checking the background service…";
         var online = await WaitForServerStateAsync(true, 20);
         if (!online)
-            throw new InvalidOperationException($"The service was registered but the server did not become ready (start code {startCode}). Check the activity log.");
+            throw new InvalidOperationException("The background service was installed, but NightSync did not become ready. Check the activity log.");
 
         ControlMessage.Text = "Background service is installed and running.";
         await RefreshStatusAsync();

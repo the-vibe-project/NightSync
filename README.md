@@ -4,25 +4,12 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
-## Current v0.3 preview
+## v0.4 local server test
+- Local-only Go server with real `/health` and `/api/v1/status` endpoints.
+- Reports real storage volume capacity, process memory, heap allocation, goroutines and uptime.
+- Test file API: list, upload, download and delete files in the configured NightSyncData folder.
+- Windows Desktop and Android monitoring UI remain a separate client preview.
+- Windows Server build remains separate in GitHub Actions.
 
-- Windows Desktop and Android monitoring dashboard screens.
-- Demo-only sample server/storage metrics, clearly labelled.
-- Member/Admin role preview; member view is read-only and admin demo diagnostics are illustrative only.
-- Save HTTPS server address and test `/health`.
-- Server scaffold reports real process uptime and runtime details on its local-only health endpoint.
-- Separate Windows server build remains in the repository and CI.
-
-## Product direction
-
-NightSync Server will be a separate Windows host application/service. Desktop and mobile are clients. Planned capabilities include NAS storage, SMB integration, media library, backups, sync, recycle bin and multi-user access.
-
-## Important limitations
-
-No actual storage metrics, CPU/memory monitoring, authentication, role enforcement, file transfer, photo backup, Windows Service, SMB, media streaming, or backup/restore is implemented yet. Demo dashboard values are not live. The role selector is not a security control.
-
-The server listens only on 127.0.0.1:8787. Do not expose it to LAN or internet or store important data in this prototype.
-
-## Build
-
-GitHub Actions builds Android debug APK, Windows desktop package and Windows server executable. These are unsigned development builds, not production installers.
+## Critical limitations
+The server binds only to `127.0.0.1:8787`. No authentication, TLS, user roles, LAN access, remote access, encryption, SMB, media streaming, backup/restore or Windows Service is implemented. Do not expose it to another device or the internet. Do not use it for important data. Client demo metrics remain labelled as demo until the clients are wired to the authenticated server API.

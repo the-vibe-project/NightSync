@@ -105,7 +105,13 @@ jobs:
             }
           } finally {
             sc.exe stop NightSync | Out-Null
-            Start-Sleep -Seconds 2
+            $stopped = $false
+            for ($i = 0; $i -lt 20; $i++) {
+              Start-Sleep -Milliseconds 500
+              $state = (sc.exe query NightSync 2>&1 | Out-String)
+              if ($state -match 'STATE\s+:s+1\s+STOPPED') { $stopped = $true; break }
+            }
+            if (-not $stopped) { throw "NightSync service did not reach the STOPPED state." }
             sc.exe delete NightSync | Out-Null
           }
       - uses: actions/upload-artifact@v4

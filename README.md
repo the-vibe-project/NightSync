@@ -1,8 +1,18 @@
 # NightSync
 
+**By The Vibe Project** — free, open-source personal cloud software.
+
 Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
+
+## v0.9.0 — three-app direction and private file manager
+- Product publisher and company branding: The Vibe Project.
+- Three application deliverables: NightSync Server, NightSync for Windows, and NightSync for Android.
+- NightSync Server bundles its engine and guided first-run setup wizard in one Windows application.
+- Windows and Android clients include folder-aware private file manager operations: list, create folders, upload, download and delete.
+- Server file storage is separated by user account and rejects traversal and symbolic-link paths.
+- Android emulator launch/login tests and Windows client/service smoke tests are being added to release CI.
 
 ## v0.8.3 premium UI and Windows boot service
 - Refreshed the Windows Server dashboard with a minimal dark interface and champagne-gold accents, simpler labels and clearer server status.

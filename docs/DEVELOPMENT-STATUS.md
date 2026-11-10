@@ -1,21 +1,23 @@
-# NightSync v0.2 development status
+# NightSync development status — v0.8.3
 
-## Implemented in this milestone
-- Windows Desktop: save multiple HTTPS server profiles locally in the current Windows user's AppData.
-- Windows Desktop: request the `/health` endpoint and display basic reachability status.
-- Windows Desktop: retain a visible future server-host setup option.
-- Android: save an HTTPS server address in app preferences.
-- Android: request `/health` and display basic reachability status.
-- Files, Photos and Storage navigation placeholders retained.
+## Implemented
+- Go server with local account setup, sign-in, password change, health/status endpoints, and basic local file list/upload/download/delete operations.
+- Windows Server UI with a premium dark interface, storage path selection, status polling, and activity log.
+- Windows Service Control Manager support. The Server UI can register the server for Automatic (Delayed Start) under LocalSystem, before a user signs in.
+- Windows service restart-on-failure recovery settings.
+- Windows desktop client and Android authentication foundation.
+- Android sync schedule screen with one, two, or three daily times and editable time pickers. Preferences are saved on the device.
 
 ## Not yet implemented
-- Server authentication, pairing and account creation.
-- File browsing, uploads, downloads and sync.
-- Camera backup.
-- Storage metrics and NAS disk management.
-- Windows server service, SMB, media server and backup engine.
+- Remote/LAN access and TLS.
+- Phone-to-server file transfers.
+- A real sync worker, internet reconnect handling, offline queue, and conflict resolution.
+- Scheduled backup and restore.
+- Android background work that executes the selected sync times.
+- Camera upload, SMB, media streaming, recycle bin, and production security review.
 
 ## Important connection limitation
-The current Go development server listens on 127.0.0.1:8787 only. It is intentionally loopback-only and is not reachable from another device. The client health check expects an HTTPS endpoint at `/health`. A secure server endpoint, TLS setup and LAN/remote access will be implemented before end-to-end device connection is enabled.
+The server intentionally listens on `127.0.0.1:8787`. It is not reachable from another device. Keep it local; do not expose it to a LAN or the internet. Secure remote access must be completed before the Android app can synchronize with the host.
 
-Never expose the development server to the internet.
+## Quality status
+GitHub Actions builds the Android APK, Windows desktop, Windows Server UI, and Windows server executable. The Windows service lifecycle is being smoke-tested in CI. A green compile/build does not replace an actual install/reboot test on the target PC.

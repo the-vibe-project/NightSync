@@ -1,0 +1,12 @@
+<Window x:Class="NightSync.Desktop.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="NightSync" Height="650" Width="1000" MinHeight="560" MinWidth="820" WindowStartupLocation="CenterScreen" Background="#F5F6FA">
+<Grid Margin="28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+<StackPanel><TextBlock Text="NightSync" FontSize="32" FontWeight="SemiBold"/><TextBlock Text="Your private cloud, across your devices." Foreground="#626777" Margin="0,5,0,0"/></StackPanel>
+<Grid Grid.Row="1" Margin="0,32,0,20"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+<Border Grid.Column="0" Background="White" CornerRadius="16" Padding="28" BorderBrush="#E4E6EE" BorderThickness="1"><StackPanel VerticalAlignment="Center">
+<TextBlock Text="HOST" Foreground="#4057D6" FontWeight="Bold"/><TextBlock Text="Host a private cloud" FontSize="24" FontWeight="SemiBold" Margin="0,12,0,8"/><TextBlock Text="Use this PC as your own cloud server. Choose storage, create your owner account and manage users and devices." TextWrapping="Wrap" Foreground="#626777"/><Button Content="Set up this PC as a host" Click="Host_Click" Height="44" Margin="0,24,0,0" Background="#4057D6" Foreground="White" BorderThickness="0"/>
+</StackPanel></Border>
+<Border Grid.Column="2" Background="White" CornerRadius="16" Padding="28" BorderBrush="#E4E6EE" BorderThickness="1"><StackPanel VerticalAlignment="Center">
+<TextBlock Text="CLIENT" Foreground="#16845B" FontWeight="Bold"/><TextBlock Text="Connect to a cloud" FontSize="24" FontWeight="SemiBold" Margin="0,12,0,8"/><TextBlock Text="Connect to your own host or another person's NightSync cloud. Browse files and configure sync on this PC." TextWrapping="Wrap" Foreground="#626777"/><Button Content="Connect to a NightSync host" Click="Client_Click" Height="44" Margin="0,24,0,0" Background="#16845B" Foreground="White" BorderThickness="0"/>
+</StackPanel></Border></Grid>
+<TextBlock Grid.Row="2" Text="Host and Client can both be enabled on the same PC." Foreground="#626777" HorizontalAlignment="Center"/>
+</Grid></Window>

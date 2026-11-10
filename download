@@ -1,0 +1,30 @@
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+
+# .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Go
+*.exe
+*.test
+/vendor/
+
+# Secrets and local data
+.env
+.env.*
+secrets/
+*.pfx
+*.p12
+*.pem
+*.key
+*.db
+*.db-shm
+*.db-wal

@@ -1,29 +1,35 @@
-# Windows boot service
+# NightSync Windows background service
 
-NightSync can be registered as a Windows Service so the server engine starts during Windows startup, before anyone signs in.
+The single **NightSync Server** app bundles the Go engine and installs it as a Windows Service.
 
-## Set it up
+## Installation
 
-1. Download the **NightSync-Server-UI-windows-x64** and **NightSync-Server-windows-x64** artifacts from the same successful GitHub Actions build.
-2. Extract both artifacts. Keep the server executable in a permanent folder; do not leave it in Downloads if you might move or delete that folder.
-3. Open `NightSync.ServerUI.exe`.
-4. Under **Storage locations**, choose the server executable and the main storage folder. Save settings.
-5. Select **Enable before sign-in** and approve the Windows administrator prompt.
-6. NightSync is registered as **Automatic (Delayed Start)** under the built-in **LocalSystem** account. Windows is configured to restart the service after unexpected failures.
+1. Download the `NightSync-Server` artifact from one successful GitHub Actions run.
+2. Extract the entire package to a permanent folder, for example `C:\NightSync\Server`.
+3. Run `NightSync.Server.exe`.
+4. Complete the first-run wizard and choose the main storage folder.
+5. Review the background startup step.
+6. Create the owner user ID and password.
+7. Approve the Windows administrator prompt.
 
-The Server dashboard is a control panel. Closing it does not stop an installed Windows service. Use Start, Stop, and Restart to manage the service.
+The wizard extracts the bundled engine to `%ProgramData%\NightSync\Engine`, registers the Windows service, starts it, checks the health endpoint, and creates the first owner account.
 
-## Storage and account notes
+## Service behavior
 
-The service runs as LocalSystem. Setup grants the service account Modify access to the selected main storage folder. Local disks are supported. Mapped drive letters and remote network shares are not configured in this development build.
+- Service name: `NightSync`
+- Startup: Automatic (Delayed Start)
+- Account: LocalSystem
+- Failure recovery: restart after unexpected failure
+- The service continues after the Server dashboard is closed or the Windows user signs out.
 
-When changing the server executable or main storage path, save the settings and select **Enable before sign-in** again to update the service configuration.
+## Changing storage or updating the app
 
-To remove the service, select **Remove boot service** and approve the administrator prompt. This removes only the Windows service registration. It does not delete NightSync files, accounts, or storage data.
+Changing the main storage folder does not move existing account data or files. Do not simply change the path if you need to retain existing user content. Perform a planned backup and migration first.
 
-## Current limits
+Keep the Server executable in its installed location. Before replacing the Server package, remove/stop the existing service, replace the package, run the Server app again, and enable background startup.
 
-- The service starts the local server before sign-in. This does not yet mean files synchronize when internet becomes available.
-- The server still listens only on `127.0.0.1:8787`. It is not reachable from other computers or phones in this build. Do not expose this development server to a LAN or the internet.
-- The Android app currently saves the choice of one, two, or three daily sync times on the phone. The times do not start file transfers yet.
-- Internet-aware background sync requires secure remote connectivity and a sync worker. Those parts are not implemented yet.
+## Development limitations
+
+The local engine listens only on `127.0.0.1:8787`; other computers and phones cannot connect. Remote TLS, secure pairing, sync, and automatic internet-reconnect behavior are not implemented. Do not expose this build to a LAN or the public internet.
+
+The service currently runs as LocalSystem. Mapped drive letters and remote network shares are not configured. A production release requires a security review and validation on a real target Windows PC.

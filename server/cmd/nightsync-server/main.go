@@ -56,7 +56,16 @@ func safeRelativePath(root, raw string) (string, error) {
 	for _, part := range parts {
 		if part == "" || part == "." || part == ".." ||
 			strings.EqualFold(part, "users.json") || strings.EqualFold(part, "users.json.tmp") ||
-			strings.HasPrefix(part, ".upload-") {
+			strings.HasPrefix(part, ".upload-") ||
+			strings.ContainsAny(part, "<>\\"|?*") ||
+			strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
+			return "", errors.New("invalid storage path")
+		}
+		base := strings.ToUpper(strings.TrimRight(strings.SplitN(part, ".", 2)[0], " "))
+		switch base {
+		case "CON", "PRN", "AUX", "NUL",
+			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
 			return "", errors.New("invalid storage path")
 		}
 	}

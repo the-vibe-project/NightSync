@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   android:
-    name: Build Android APK
+    name: Build Android app
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,35 +31,35 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
+      - name: Build Android APK
         working-directory: mobile/android
         run: gradle --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: NightSync-Android-debug
+          name: NightSync-Android
           path: mobile/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
 
   windows:
-    name: Build Windows desktop
+    name: Build Windows client
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Publish Windows x64
+      - name: Publish Windows client
         run: dotnet publish desktop/windows/NightSync.Desktop/NightSync.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/NightSync-Windows
       - uses: actions/upload-artifact@v4
         with:
-          name: NightSync-Windows-x64
+          name: NightSync-Windows
           path: artifacts/NightSync-Windows/**
           if-no-files-found: error
           retention-days: 14
 
   server:
-    name: Build Windows server executable
+    name: Build single NightSync Server app
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,32 +67,39 @@ jobs:
         with:
           go-version: '1.23.x'
           cache: false
-      - name: Resolve Go dependencies and generate checksums
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Resolve Go dependencies
         working-directory: server
         run: go mod tidy
-      - name: Build server
+      - name: Test server API
+        working-directory: server
+        run: go test ./...
+      - name: Build embedded server engine
         shell: pwsh
         working-directory: server
         run: |
-          New-Item -ItemType Directory -Force -Path ../artifacts | Out-Null
-          go build -trimpath -ldflags="-s -w" -o ../artifacts/NightSync-Server-windows-x64.exe ./cmd/nightsync-server
-      - name: Smoke test Windows service start and stop
+          $resourceDir = "../desktop/windows/NightSync.ServerUI/Resources"
+          New-Item -ItemType Directory -Force -Path $resourceDir | Out-Null
+          go build -trimpath -ldflags="-s -w" -o "$resourceDir/NightSync.Server.Engine.exe" ./cmd/nightsync-server
+      - name: Smoke test Windows background service
         shell: pwsh
         working-directory: server
         run: |
           $ErrorActionPreference = "Stop"
-          $exe = (Resolve-Path "../artifacts/NightSync-Server-windows-x64.exe").Path
+          $exe = (Resolve-Path "../desktop/windows/NightSync.ServerUI/Resources/NightSync.Server.Engine.exe").Path
           $data = Join-Path $env:RUNNER_TEMP "NightSync-Service-Smoke"
           $log = Join-Path $env:RUNNER_TEMP "NightSync-Service-Smoke.log"
           New-Item -ItemType Directory -Force -Path $data | Out-Null
           $binPath = "`"$exe`" --storage `"$data`" --log-file `"$log`""
-          sc.exe create NightSync binPath= $binPath start= demand obj= LocalSystem
-          if ($LASTEXITCODE -ne 0) { throw "Could not register the NightSync smoke-test service." }
+          sc.exe create NightSyncSmoke binPath= $binPath start= demand obj= LocalSystem
+          if ($LASTEXITCODE -ne 0) { throw "Could not register the NightSync service smoke test." }
           try {
-            sc.exe start NightSync
+            sc.exe start NightSyncSmoke
             if ($LASTEXITCODE -ne 0) { throw "Windows could not start the NightSync service." }
             $healthy = $false
-            for ($i = 0; $i -lt 20; $i++) {
+            for ($i = 0; $i -lt 24; $i++) {
               Start-Sleep -Milliseconds 500
               try {
                 $response = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8787/health"
@@ -104,37 +111,22 @@ jobs:
               throw "NightSync service did not expose a healthy local endpoint."
             }
           } finally {
-            sc.exe stop NightSync | Out-Null
+            sc.exe stop NightSyncSmoke | Out-Null
             $stopped = $false
             for ($i = 0; $i -lt 20; $i++) {
               Start-Sleep -Milliseconds 500
-              $state = (sc.exe query NightSync 2>&1 | Out-String)
+              $state = (sc.exe query NightSyncSmoke 2>&1 | Out-String)
               Write-Host $state
               if ($state.Contains("STOPPED")) { $stopped = $true; break }
             }
             if (-not $stopped) { throw "NightSync service did not reach the STOPPED state." }
-            sc.exe delete NightSync | Out-Null
+            sc.exe delete NightSyncSmoke | Out-Null
           }
+      - name: Publish single Server app
+        run: dotnet publish desktop/windows/NightSync.ServerUI/NightSync.ServerUI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/NightSync-Server
       - uses: actions/upload-artifact@v4
         with:
-          name: NightSync-Server-windows-x64
-          path: artifacts/NightSync-Server-windows-x64.exe
-          if-no-files-found: error
-          retention-days: 14
-
-  server-ui:
-    name: Build NightSync Server graphical app
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Publish NightSync Server UI
-        run: dotnet publish desktop/windows/NightSync.ServerUI/NightSync.ServerUI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/NightSync-Server-UI
-      - uses: actions/upload-artifact@v4
-        with:
-          name: NightSync-Server-UI-windows-x64
-          path: artifacts/NightSync-Server-UI/**
+          name: NightSync-Server
+          path: artifacts/NightSync-Server/NightSync.Server.exe
           if-no-files-found: error
           retention-days: 14

@@ -57,7 +57,7 @@ func safeRelativePath(root, raw string) (string, error) {
 		if part == "" || part == "." || part == ".." ||
 			strings.EqualFold(part, "users.json") || strings.EqualFold(part, "users.json.tmp") ||
 			strings.HasPrefix(part, ".upload-") ||
-			strings.ContainsAny(part, "<>\\"|?*") ||
+			strings.ContainsAny(part, "<>\"|?*") ||
 			strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
 			return "", errors.New("invalid storage path")
 		}

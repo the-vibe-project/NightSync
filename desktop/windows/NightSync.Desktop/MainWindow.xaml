@@ -274,6 +274,6 @@
         </ScrollViewer>
       </Border>
     </Grid>
-    <TextBlock Grid.Row="2" Text="NIGHTSYNC  •  WINDOWS CLIENT  •  PRIVATE WORKSPACE" Foreground="#506782" FontSize="9" Margin="4,14,0,0"/>
+    <TextBlock Grid.Row="2" Text="NIGHTSYNC  •  THE VIBE PROJECT  •  WINDOWS CLIENT" Foreground="#506782" FontSize="9" Margin="4,14,0,0"/>
   </Grid>
 </Window>

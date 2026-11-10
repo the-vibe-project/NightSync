@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
@@ -16,21 +18,24 @@ public partial class MainWindow : Window
 
     private sealed class Config
     {
-        public string ServerExe { get; set; } = "";
-        public string MainPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NightSync", "NightSyncData");
+        public string MainPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "NightSync Storage");
         public string BackupPath { get; set; } = "";
         public string SyncPath { get; set; } = "";
+        public bool SetupComplete { get; set; }
     }
 
     private readonly string _root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NightSync");
+    private readonly string _programRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NightSync");
     private string ConfigPath => Path.Combine(_root, "server-ui.json");
     private string UserLogPath => Path.Combine(_root, "server.log");
-    private string ServiceLogPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NightSync", "server.log");
+    private string ServiceLogPath => Path.Combine(_programRoot, "server.log");
+    private string EnginePath => Path.Combine(_programRoot, "Engine", "NightSync.Server.Engine.exe");
     private string CurrentLogPath => IsServiceInstalled() && File.Exists(ServiceLogPath) ? ServiceLogPath : UserLogPath;
+
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(5) };
     private Config _config = new();
-    private Process? _ownedServer;
+    private bool _wizardRunning;
 
     public MainWindow()
     {
@@ -39,7 +44,11 @@ public partial class MainWindow : Window
         LoadConfig();
         _timer.Tick += async (_, _) => await RefreshStatusAsync();
         _timer.Start();
-        Loaded += async (_, _) => await RefreshStatusAsync();
+        Loaded += async (_, _) =>
+        {
+            await RefreshStatusAsync();
+            if (!_config.SetupComplete) await RunSetupWizardAsync();
+        };
         Closing += (_, _) => { _timer.Stop(); _http.Dispose(); };
     }
 
@@ -58,7 +67,6 @@ public partial class MainWindow : Window
         }
         catch { _config = new Config(); }
 
-        ExeBox.Text = _config.ServerExe;
         MainBox.Text = _config.MainPath;
         BackupBox.Text = _config.BackupPath;
         SyncBox.Text = _config.SyncPath;
@@ -67,7 +75,6 @@ public partial class MainWindow : Window
 
     private void SaveConfig()
     {
-        _config.ServerExe = ExeBox.Text.Trim();
         _config.MainPath = MainBox.Text.Trim();
         _config.BackupPath = BackupBox.Text.Trim();
         _config.SyncPath = SyncBox.Text.Trim();
@@ -78,31 +85,67 @@ public partial class MainWindow : Window
         Directory.CreateDirectory(_config.MainPath);
         if (!string.IsNullOrWhiteSpace(_config.BackupPath)) Directory.CreateDirectory(_config.BackupPath);
         if (!string.IsNullOrWhiteSpace(_config.SyncPath)) Directory.CreateDirectory(_config.SyncPath);
+
+        Directory.CreateDirectory(_root);
         File.WriteAllText(ConfigPath, JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
+    private static string PowerShellQuote(string value) => "'" + value.Replace("'", "''") + "'";
 
-    private string BuildArguments() =>
-        $"--storage {Quote(_config.MainPath)} --backup {Quote(_config.BackupPath)} --sync {Quote(_config.SyncPath)} --log-file {Quote(UserLogPath)}";
-
-    private string BuildServiceCommandLine() =>
-        $"{Quote(_config.ServerExe)} --storage {Quote(_config.MainPath)} --backup {Quote(_config.BackupPath)} --sync {Quote(_config.SyncPath)} --log-file {Quote(ServiceLogPath)}";
+    private string BuildServiceCommandLine()
+    {
+        var args = new StringBuilder();
+        args.Append(Quote(EnginePath));
+        args.Append(" --storage ").Append(Quote(_config.MainPath));
+        args.Append(" --log-file ").Append(Quote(ServiceLogPath));
+        if (!string.IsNullOrWhiteSpace(_config.BackupPath)) args.Append(" --backup ").Append(Quote(_config.BackupPath));
+        if (!string.IsNullOrWhiteSpace(_config.SyncPath)) args.Append(" --sync ").Append(Quote(_config.SyncPath));
+        return args.ToString();
+    }
 
     private static async Task<int> RunToolAsync(string fileName, IEnumerable<string> arguments, bool elevate)
     {
         var info = new ProcessStartInfo
         {
             FileName = fileName,
-            UseShellExecute = elevate,
-            Verb = elevate ? "runas" : ""
+            UseShellExecute = elevate
         };
+        if (elevate) info.Verb = "runas";
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
 
         using var process = Process.Start(info);
         if (process is null) return -1;
         await process.WaitForExitAsync();
         return process.ExitCode;
+    }
+
+    private async Task<int> InstallEmbeddedEngineAsync()
+    {
+        var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("NightSync.Server.Engine.exe");
+        if (resource is null)
+            throw new InvalidOperationException("The server engine is missing from this build. Download the complete NightSync Server package again.");
+
+        var tempEngine = Path.Combine(Path.GetTempPath(), "NightSync.Server.Engine." + Guid.NewGuid().ToString("N") + ".exe");
+        try
+        {
+            await using (resource)
+            await using (var output = File.Create(tempEngine))
+                await resource.CopyToAsync(output);
+
+            var engineFolder = Path.GetDirectoryName(EnginePath)!;
+            var script = "$ErrorActionPreference='Stop'; " +
+                         "New-Item -ItemType Directory -Force -Path " + PowerShellQuote(engineFolder) + " | Out-Null; " +
+                         "New-Item -ItemType Directory -Force -Path " + PowerShellQuote(_programRoot) + " | Out-Null; " +
+                         "Copy-Item -LiteralPath " + PowerShellQuote(tempEngine) + " -Destination " + PowerShellQuote(EnginePath) + " -Force";
+            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            return await RunToolAsync("powershell.exe",
+                ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], true);
+        }
+        finally
+        {
+            try { if (File.Exists(tempEngine)) File.Delete(tempEngine); } catch { }
+        }
     }
 
     private async Task<bool> IsOnlineAsync()
@@ -115,16 +158,26 @@ public partial class MainWindow : Window
         catch { return false; }
     }
 
+    private async Task<bool> WaitForServerStateAsync(bool shouldBeOnline, int timeoutSeconds = 18)
+    {
+        for (var i = 0; i < timeoutSeconds * 2; i++)
+        {
+            if (await IsOnlineAsync() == shouldBeOnline) return true;
+            await Task.Delay(500);
+        }
+        return false;
+    }
+
     private async Task RefreshStatusAsync()
     {
         var online = await IsOnlineAsync();
-        StatusText.Text = online ? "Online" : "Offline";
-        StatusDot.Fill = new SolidColorBrush(online ? Color.FromRgb(54, 190, 135) : Color.FromRgb(135, 145, 160));
+        StatusText.Text = online ? "Server online" : "Server offline";
+        StatusDot.Fill = new SolidColorBrush(online ? Color.FromRgb(75, 226, 184) : Color.FromRgb(135, 145, 160));
 
         var serviceInstalled = IsServiceInstalled();
         ServiceText.Text = serviceInstalled
-            ? "Boot service installed · NightSync can start before anyone signs in."
-            : "Boot service not installed · NightSync starts only when you launch it.";
+            ? "Background service installed · Starts with Windows before sign-in."
+            : "Background service is not installed · Complete setup to keep NightSync running after sign-out.";
 
         if (online)
         {
@@ -136,7 +189,7 @@ public partial class MainWindow : Window
                 VersionText.Text = root.TryGetProperty("version", out var v) ? v.GetString() ?? "—" : "—";
                 var uptime = root.TryGetProperty("uptime_seconds", out var u) ? u.GetInt64() : 0;
                 UptimeText.Text = TimeSpan.FromSeconds(uptime).ToString(@"d\.hh\:mm\:ss");
-                HealthText.Text = "NightSync is running on this PC. Remote access and automatic file transfers are not enabled in this development build.";
+                HealthText.Text = "NightSync is running in the background on this PC. This dashboard can be closed without stopping the server.";
             }
             catch { HealthText.Text = "Server responded, but its status details could not be read."; }
         }
@@ -144,7 +197,9 @@ public partial class MainWindow : Window
         {
             VersionText.Text = "—";
             UptimeText.Text = "—";
-            HealthText.Text = "NightSync is not running. Select Start server to launch it.";
+            HealthText.Text = serviceInstalled
+                ? "The background service is installed but is not responding. Select Start to try again."
+                : "The server is not running. Finish the setup wizard to install background startup.";
         }
 
         UpdateDriveStats();
@@ -169,85 +224,145 @@ public partial class MainWindow : Window
     private static string FormatBytes(long value)
     {
         string[] units = ["B", "KB", "GB", "TB"];
-        double n = value;
+        double n = Math.Max(0, value);
         var i = 0;
         while (n >= 1024 && i < units.Length - 1) { n /= 1024; i++; }
         return $"{n:0.0} {units[i]}";
     }
 
-    private async Task WaitForServerStateAsync(bool shouldBeOnline)
+    private async Task<bool> InstallBackgroundServiceAsync()
     {
-        for (var i = 0; i < 30; i++)
+        SaveConfig();
+        ControlMessage.Text = "Preparing the NightSync engine…";
+
+        var copyCode = await InstallEmbeddedEngineAsync();
+        if (copyCode != 0 || !File.Exists(EnginePath))
+            throw new InvalidOperationException($"Windows could not install the bundled server engine (code {copyCode}).");
+
+        ControlMessage.Text = "Granting the background service access to storage…";
+        var aclCode = await RunToolAsync("icacls.exe",
+            [_config.MainPath, "/grant", "*S-1-5-18:(OI)(CI)M", "/T", "/C"], true);
+        if (aclCode != 0)
+            throw new InvalidOperationException($"Windows could not grant the background service access to main storage (code {aclCode}).");
+
+        if (IsServiceInstalled())
         {
-            if (await IsOnlineAsync() == shouldBeOnline) return;
-            await Task.Delay(500);
+            await RunToolAsync("sc.exe", ["stop", ServiceName], true);
+            await WaitForServerStateAsync(false, 12);
         }
+
+        ControlMessage.Text = "Registering the Windows background service…";
+        var serviceArgs = new List<string>
+        {
+            IsServiceInstalled() ? "config" : "create",
+            ServiceName,
+            "binPath=", BuildServiceCommandLine(),
+            "start=", "delayed-auto",
+            "obj=", "LocalSystem"
+        };
+        if (!IsServiceInstalled())
+        {
+            serviceArgs.Add("DisplayName=");
+            serviceArgs.Add("NightSync Server");
+        }
+
+        var configCode = await RunToolAsync("sc.exe", serviceArgs, true);
+        if (configCode != 0)
+            throw new InvalidOperationException($"Windows could not register the background service (code {configCode}).");
+
+        await RunToolAsync("sc.exe", ["description", ServiceName, "NightSync private cloud server"], true);
+        await RunToolAsync("sc.exe", ["failure", ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/10000/restart/30000"], true);
+        await RunToolAsync("sc.exe", ["failureflag", ServiceName, "1"], true);
+
+        ControlMessage.Text = "Starting NightSync in the background…";
+        var startCode = await RunToolAsync("sc.exe", ["start", ServiceName], true);
+        var online = await WaitForServerStateAsync(true, 20);
+        if (!online)
+            throw new InvalidOperationException($"The service was registered but the server did not become ready (start code {startCode}). Check the activity log.");
+
+        _config.SetupComplete = true;
+        SaveConfig();
+        ControlMessage.Text = "Background service is installed and running.";
+        await RefreshStatusAsync();
+        return true;
+    }
+
+    private async Task RunSetupWizardAsync()
+    {
+        if (_wizardRunning) return;
+        _wizardRunning = true;
+        try
+        {
+            var wizard = new SetupWizardWindow(_config.MainPath) { Owner = this };
+            if (wizard.ShowDialog() != true) return;
+
+            MainBox.Text = wizard.StoragePath;
+            SaveConfig();
+            if (wizard.EnableBackgroundService)
+            {
+                try { await InstallBackgroundServiceAsync(); }
+                catch (System.ComponentModel.Win32Exception)
+                {
+                    ControlMessage.Text = "Administrator approval was cancelled. The background service was not installed.";
+                }
+                catch (Exception ex)
+                {
+                    ControlMessage.Text = "Setup needs attention: " + ex.Message;
+                    MessageBox.Show(ex.Message, "NightSync setup", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            else
+            {
+                _config.SetupComplete = true;
+                SaveConfig();
+                ControlMessage.Text = "Storage is configured. Enable the background service to start before sign-in.";
+            }
+        }
+        finally { _wizardRunning = false; }
     }
 
     private async Task StartServerAsync()
     {
-        try { SaveConfig(); }
-        catch (Exception ex) { ControlMessage.Text = "Save your settings first: " + ex.Message; return; }
-
-        if (await IsOnlineAsync()) { ControlMessage.Text = "NightSync is already running."; return; }
-
-        if (IsServiceInstalled())
+        if (!IsServiceInstalled())
         {
-            var result = await RunToolAsync("sc.exe", ["start", ServiceName], true);
-            await WaitForServerStateAsync(true);
-            ControlMessage.Text = await IsOnlineAsync()
-                ? "NightSync service is running."
-                : $"Windows could not start the service (code {result}). Check the activity log.";
-            await RefreshStatusAsync();
-            return;
-        }
-
-        if (!File.Exists(_config.ServerExe)) { ControlMessage.Text = "Choose a valid NightSync server application first."; return; }
-        var psi = new ProcessStartInfo(_config.ServerExe, BuildArguments())
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = Path.GetDirectoryName(_config.ServerExe) ?? AppContext.BaseDirectory
-        };
-        _ownedServer = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        if (!_ownedServer.Start()) { ControlMessage.Text = "Windows could not start NightSync."; return; }
-
-        ControlMessage.Text = "Starting NightSync…";
-        for (var i = 0; i < 20; i++)
-        {
-            await Task.Delay(500);
-            if (await IsOnlineAsync()) { ControlMessage.Text = "NightSync is ready."; await RefreshStatusAsync(); return; }
-            if (_ownedServer.HasExited) { ControlMessage.Text = $"NightSync stopped unexpectedly (code {_ownedServer.ExitCode}). Check the activity log."; break; }
-        }
-        await RefreshStatusAsync();
-    }
-
-    private async Task StopServerAsync()
-    {
-        if (IsServiceInstalled())
-        {
-            var result = await RunToolAsync("sc.exe", ["stop", ServiceName], true);
-            await WaitForServerStateAsync(false);
-            ControlMessage.Text = await IsOnlineAsync()
-                ? $"NightSync is still responding. Windows returned code {result}."
-                : "NightSync service has stopped.";
-            await RefreshStatusAsync();
-            return;
-        }
-
-        if (_ownedServer is null || _ownedServer.HasExited)
-        {
-            ControlMessage.Text = "This dashboard did not start the running process. Use its original launch method to stop it.";
+            ControlMessage.Text = "Install the background service first. Open the setup wizard.";
             return;
         }
         try
         {
-            _ownedServer.Kill(entireProcessTree: true);
-            await _ownedServer.WaitForExitAsync();
-            ControlMessage.Text = "NightSync has stopped.";
+            var result = await RunToolAsync("sc.exe", ["start", ServiceName], true);
+            var online = await WaitForServerStateAsync(true, 20);
+            ControlMessage.Text = online
+                ? "NightSync is running in the background."
+                : $"Windows could not start the service (code {result}). Check the activity log.";
+            await RefreshStatusAsync();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            ControlMessage.Text = "Administrator approval was cancelled. NightSync was not started.";
+        }
+        catch (Exception ex) { ControlMessage.Text = "Could not start NightSync: " + ex.Message; }
+    }
+
+    private async Task StopServerAsync()
+    {
+        if (!IsServiceInstalled())
+        {
+            ControlMessage.Text = "The background service is not installed.";
+            return;
+        }
+        try
+        {
+            var result = await RunToolAsync("sc.exe", ["stop", ServiceName], true);
+            var stopped = await WaitForServerStateAsync(false, 18);
+            ControlMessage.Text = stopped ? "NightSync has stopped." : $"Stop requested. Windows returned code {result}.";
+            await RefreshStatusAsync();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            ControlMessage.Text = "Administrator approval was cancelled. NightSync is unchanged.";
         }
         catch (Exception ex) { ControlMessage.Text = "Could not stop NightSync: " + ex.Message; }
-        await RefreshStatusAsync();
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e) => await StartServerAsync();
@@ -255,69 +370,22 @@ public partial class MainWindow : Window
     private async void Restart_Click(object sender, RoutedEventArgs e)
     {
         await StopServerAsync();
-        await Task.Delay(700);
+        if (!await WaitForServerStateAsync(false, 10)) return;
         await StartServerAsync();
     }
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshStatusAsync();
 
     private async void InstallService_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            SaveConfig();
-            if (!File.Exists(_config.ServerExe))
-            {
-                ControlMessage.Text = "Choose the NightSync server application first.";
-                return;
-            }
-
-            var aclCode = await RunToolAsync("icacls.exe",
-                [_config.MainPath, "/grant", "*S-1-5-18:(OI)(CI)M"], true);
-            if (aclCode != 0)
-            {
-                ControlMessage.Text = $"Could not grant the Windows service access to main storage (code {aclCode}).";
-                return;
-            }
-
-            var serviceArgs = new List<string>
-            {
-                IsServiceInstalled() ? "config" : "create",
-                ServiceName,
-                "binPath=", BuildServiceCommandLine(),
-                "start=", "delayed-auto",
-                "obj=", "LocalSystem"
-            };
-            if (!IsServiceInstalled())
-            {
-                serviceArgs.Add("DisplayName=");
-                serviceArgs.Add("NightSync Server");
-            }
-
-            var configCode = await RunToolAsync("sc.exe", serviceArgs, true);
-            if (configCode != 0)
-            {
-                ControlMessage.Text = $"Windows could not register NightSync as a service (code {configCode}).";
-                return;
-            }
-
-            await RunToolAsync("sc.exe", ["description", ServiceName, "NightSync private cloud server"], true);
-            await RunToolAsync("sc.exe", ["failure", ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/10000/restart/30000"], true);
-            await RunToolAsync("sc.exe", ["failureflag", ServiceName, "1"], true);
-
-            var startCode = await RunToolAsync("sc.exe", ["start", ServiceName], true);
-            await WaitForServerStateAsync(true);
-            ControlMessage.Text = await IsOnlineAsync()
-                ? "Boot service installed. NightSync will start with Windows, before sign-in."
-                : $"Service is installed, but did not become ready (start code {startCode}). Check the activity log.";
-            await RefreshStatusAsync();
-        }
+        try { await InstallBackgroundServiceAsync(); }
         catch (System.ComponentModel.Win32Exception)
         {
             ControlMessage.Text = "Administrator approval was cancelled. No service changes were made.";
         }
         catch (Exception ex)
         {
-            ControlMessage.Text = "Could not install the boot service: " + ex.Message;
+            ControlMessage.Text = "Could not enable background startup: " + ex.Message;
+            MessageBox.Show(ex.Message, "NightSync Server", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -325,42 +393,46 @@ public partial class MainWindow : Window
     {
         if (!IsServiceInstalled())
         {
-            ControlMessage.Text = "The boot service is not installed.";
+            ControlMessage.Text = "The background service is not installed.";
             return;
         }
+
+        if (MessageBox.Show("Remove automatic background startup? Your files and settings will remain untouched.",
+            "Remove background service", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         try
         {
             await RunToolAsync("sc.exe", ["stop", ServiceName], true);
-            await Task.Delay(1200);
+            await WaitForServerStateAsync(false, 12);
             var result = await RunToolAsync("sc.exe", ["delete", ServiceName], true);
             ControlMessage.Text = result == 0
-                ? "Boot service removed. Your NightSync files and settings are untouched."
-                : $"Windows could not remove the boot service (code {result}).";
+                ? "Background service removed. Your NightSync files are untouched."
+                : $"Windows could not remove the service (code {result}).";
+            _config.SetupComplete = false;
+            SaveConfig();
             await RefreshStatusAsync();
         }
         catch (System.ComponentModel.Win32Exception)
         {
             ControlMessage.Text = "Administrator approval was cancelled. No service changes were made.";
         }
-        catch (Exception ex) { ControlMessage.Text = "Could not remove the boot service: " + ex.Message; }
+        catch (Exception ex) { ControlMessage.Text = "Could not remove the service: " + ex.Message; }
     }
+
+    private async void OpenWizard_Click(object sender, RoutedEventArgs e) => await RunSetupWizardAsync();
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             SaveConfig();
-            StorageMessage.Text = "Your storage locations have been saved. Backup and sync are not active yet.";
+            StorageMessage.Text = IsServiceInstalled()
+                ? "Storage settings saved. Re-enable the background service to apply a changed main storage location."
+                : "Storage settings saved.";
         }
         catch (Exception ex) { StorageMessage.Text = "Could not save settings: " + ex.Message; }
     }
 
-    private void BrowseExe_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new OpenFileDialog { Filter = "NightSync server application|NightSync-Server-windows-x64.exe;*.exe|All files|*.*" };
-        if (dialog.ShowDialog() == true) ExeBox.Text = dialog.FileName;
-    }
     private void BrowseMain_Click(object sender, RoutedEventArgs e) => ChooseFolder(MainBox);
     private void BrowseBackup_Click(object sender, RoutedEventArgs e) => ChooseFolder(BackupBox);
     private void BrowseSync_Click(object sender, RoutedEventArgs e) => ChooseFolder(SyncBox);
@@ -368,6 +440,7 @@ public partial class MainWindow : Window
     private static void ChooseFolder(System.Windows.Controls.TextBox target)
     {
         var dialog = new OpenFolderDialog { Title = "Choose a NightSync folder", Multiselect = false };
+        if (Directory.Exists(target.Text)) dialog.FolderName = target.Text;
         if (dialog.ShowDialog() == true) target.Text = dialog.FolderName;
     }
 

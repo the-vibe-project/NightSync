@@ -131,7 +131,11 @@ func (a *authStore) createFirstAdmin(username, password string) error {
 		MustChangePassword: false,
 		CreatedAt: time.Now().UTC(),
 	}
-	return a.saveLocked()
+	if err := a.saveLocked(); err != nil {
+		delete(a.users, key)
+		return err
+	}
+	return nil
 }
 
 func (a *authStore) logout(token string) bool {

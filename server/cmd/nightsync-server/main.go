@@ -64,7 +64,8 @@ func safeRelativePath(root, raw string) (string, error) {
 		switch base {
 		case "CON", "PRN", "AUX", "NUL",
 			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
+			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+			"COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³", "CONIN$", "CONOUT$", "CLOCK$":
 			return "", errors.New("invalid storage path")
 		}
 	}
@@ -157,6 +158,9 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		items := make([]map[string]any, 0, len(entries))
 		for _, entry := range entries {
+			if strings.HasPrefix(entry.Name(), ".upload-") {
+				continue
+			}
 			entryInfo, statErr := os.Lstat(filepath.Join(folder, entry.Name()))
 			if statErr != nil || entryInfo.Mode()&os.ModeSymlink != 0 {
 				continue

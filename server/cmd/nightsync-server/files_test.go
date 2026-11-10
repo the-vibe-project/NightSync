@@ -156,7 +156,7 @@ func TestSafeRelativePathRejectsWindowsReservedAndInvalidNames(t *testing.T) {
 	root := t.TempDir()
 	invalid := []string{
 		"CON", "con.txt", "PRN.log", "AUX", "NUL", "COM1", "COM9.txt",
-		"LPT1", "LPT9.csv", "trailing.", "trailing ", "bad?name.txt",
+		"LPT1", "LPT9.csv", "COM¹", "LPT²", "CONIN$", "CONOUT$", "CLOCK$", "trailing.", "trailing ", "bad?name.txt",
 		"bad*name", "bad|name", "bad<name", "bad>name", "bad\"name",
 	}
 	for _, input := range invalid {

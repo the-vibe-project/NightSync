@@ -250,6 +250,7 @@ fun NightSyncAuthApp(
                                 connection.readTimeout = 60000
                                 connection.setRequestProperty("Authorization", "Bearer $currentToken")
                                 connection.setRequestProperty("Content-Type", context.contentResolver.getType(uri) ?: "application/octet-stream")
+                                connection.setChunkedStreamingMode(64 * 1024)
                                 connection.doOutput = true
                                 val input = context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("Could not open selected file.")
                                 input.use { source -> connection.outputStream.use { target -> source.copyTo(target) } }

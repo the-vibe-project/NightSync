@@ -2,58 +2,27 @@
 
 Free and open-source self-hosted NAS and personal cloud.
 
-**Status: connection-first development scaffold — not a production NAS and not yet security-reviewed.**
+**Status: early development prototype. Not production-ready or security-reviewed.**
+
+## Current v0.3 preview
+
+- Windows Desktop and Android monitoring dashboard screens.
+- Demo-only sample server/storage metrics, clearly labelled.
+- Member/Admin role preview; member view is read-only and admin demo diagnostics are illustrative only.
+- Save HTTPS server address and test `/health`.
+- Server scaffold reports real process uptime and runtime details on its local-only health endpoint.
+- Separate Windows server build remains in the repository and CI.
 
 ## Product direction
 
-- NightSync Server: Windows background service (initial target).
-- NightSync Desktop: graphical Windows client and server administration.
-- NightSync Mobile: Android first; iOS later.
-- NightSync Web: browser-based administration and file access.
-- Storage: independent drives first; Windows Storage Spaces integration later.
-- SMB: Windows-native SMB integration, LAN use only; never expose SMB directly to the public internet.
-- Media: personal photo, audio and video library.
-- Backup: local/external drives, another NightSync server, network destinations; optional integrations later.
-- No subscriptions, ads, paid tiers or mandatory hosted cloud.
+NightSync Server will be a separate Windows host application/service. Desktop and mobile are clients. Planned capabilities include NAS storage, SMB integration, media library, backups, sync, recycle bin and multi-user access.
 
-## Repository layout
+## Important limitations
 
-```text
-.github/workflows/       CI builds
-server/                  Go server foundation
-desktop/windows/         WPF Windows application
-mobile/android/          Android application
-docs/                    Architecture and development notes
-```
+No actual storage metrics, CPU/memory monitoring, authentication, role enforcement, file transfer, photo backup, Windows Service, SMB, media streaming, or backup/restore is implemented yet. Demo dashboard values are not live. The role selector is not a security control.
 
-## Current capabilities
+The server listens only on 127.0.0.1:8787. Do not expose it to LAN or internet or store important data in this prototype.
 
-- Android server-address screen with saved HTTPS address and health-check attempt.
-- Windows desktop connection profiles, HTTPS health-check attempt and future host option.
-- Go HTTP health endpoint bound to localhost.
-- Automated GitHub Actions build definitions for Android APK, Windows app and Go server executable.
+## Build
 
-## Not implemented yet
-
-Authentication, encryption, file transfer, synchronization, camera backup, NAS disk/pool management, SMB integration, media streaming, backup/restore, Windows Service installation, remote access, and production installers.
-
-Do not expose the server to the internet or store important data in this scaffold.
-
-## Build outputs
-
-GitHub Actions uploads development artifacts:
-- `NightSync-Android-debug.apk`
-- `NightSync-Windows-x64` (self-contained publish folder)
-- `NightSync-Server-windows-x64.exe`
-
-These are unsigned development builds, not production releases.
-
-## Local requirements
-
-- Android: JDK 17 and Android SDK 35.
-- Windows desktop: .NET 8 SDK on Windows.
-- Server: Go 1.23+.
-
-## Licence
-
-GNU AGPL-3.0-or-later. Keep the repository's existing full AGPL-3.0 licence file when replacing the project contents. Do not replace it with a shortened notice.
+GitHub Actions builds Android debug APK, Windows desktop package and Windows server executable. These are unsigned development builds, not production installers.

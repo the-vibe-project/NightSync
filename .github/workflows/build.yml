@@ -15,42 +15,26 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      # Use the Android SDK already installed on GitHub's Ubuntu runner.
-      # Install explicit packages; do not request the obsolete SDK package "tools".
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
       - name: Install Android SDK packages
         shell: bash
         run: |
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            echo "Android SDK manager not found at: $SDKMANAGER"
-            exit 1
-          fi
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
       - name: Build debug APK
         working-directory: mobile/android
         run: gradle --no-daemon assembleDebug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: NightSync-Android-debug
           path: mobile/android/app/build/outputs/apk/debug/*.apk
@@ -61,19 +45,13 @@ jobs:
     name: Build Windows desktop
     runs-on: windows-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-
       - name: Publish Windows x64
         run: dotnet publish desktop/windows/NightSync.Desktop/NightSync.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/NightSync-Windows
-
-      - name: Upload Windows build
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: NightSync-Windows-x64
           path: artifacts/NightSync-Windows/**
@@ -84,24 +62,18 @@ jobs:
     name: Build Windows server executable
     runs-on: windows-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
           cache: false
-
       - name: Build server
         shell: pwsh
         working-directory: server
         run: |
           New-Item -ItemType Directory -Force -Path ../artifacts | Out-Null
           go build -trimpath -ldflags="-s -w" -o ../artifacts/NightSync-Server-windows-x64.exe ./cmd/nightsync-server
-
-      - name: Upload server build
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: NightSync-Server-windows-x64
           path: artifacts/NightSync-Server-windows-x64.exe

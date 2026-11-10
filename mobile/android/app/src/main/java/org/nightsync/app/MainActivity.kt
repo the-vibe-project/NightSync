@@ -357,7 +357,22 @@ fun NightSyncAuthApp(
                     },
                     actions = {
                         if (token != null) {
-                            TextButton(onClick = { token = null; password = ""; activeTab = "files"; status = "Signed out." }) {
+                            TextButton(onClick = {
+                                val sessionToken = token
+                                token = null
+                                password = ""
+                                activeTab = "files"
+                                currentFolder = ""
+                                cloudItems = emptyList()
+                                status = "Signed out."
+                                if (sessionToken != null) {
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            try { requestJson(address, "/api/v1/logout", "POST", token = sessionToken) } catch (_: Exception) { }
+                                        }
+                                    }
+                                }
+                            }) {
                                 Text("Sign out", color = NightMuted)
                             }
                         }

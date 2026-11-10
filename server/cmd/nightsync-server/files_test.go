@@ -150,3 +150,62 @@ func TestUserStorageDoesNotFollowSymlink(t *testing.T) {
 		t.Fatal("expected symlink traversal to be rejected")
 	}
 }
+
+
+func TestSafeRelativePathRejectsWindowsReservedAndInvalidNames(t *testing.T) {
+	root := t.TempDir()
+	invalid := []string{
+		"CON", "con.txt", "PRN.log", "AUX", "NUL", "COM1", "COM9.txt",
+		"LPT1", "LPT9.csv", "trailing.", "trailing ", "bad?name.txt",
+		"bad*name", "bad|name", "bad<name", "bad>name", "bad\\"name",
+	}
+	for _, input := range invalid {
+		if _, err := safeRelativePath(root, input); err == nil {
+			t.Errorf("expected Windows-invalid name %q to be rejected", input)
+		}
+	}
+
+	for _, input := range []string{"My Documents", "Résumé.pdf", "2026/Photos/Family"} {
+		if _, err := safeRelativePath(root, input); err != nil {
+			t.Errorf("expected valid name %q to be accepted: %v", input, err)
+		}
+	}
+}
+
+func TestFileManagerRequiresAuthenticationAndRejectsOverwrite(t *testing.T) {
+	setupFileAPITest(t)
+
+	for _, tc := range []struct {
+		name string
+		handler http.HandlerFunc
+		method string
+		target string
+		body []byte
+	}{
+		{"list", filesHandler, http.MethodGet, "/api/v1/files", nil},
+		{"upload", filesHandler, http.MethodPut, "/api/v1/files?path=x.txt", []byte("x")},
+		{"download", fileHandler, http.MethodGet, "/api/v1/file?path=x.txt", nil},
+		{"delete", fileHandler, http.MethodDelete, "/api/v1/file?path=x.txt", nil},
+		{"create folder", foldersHandler, http.MethodPost, "/api/v1/folders", []byte(`{"path":"x"}`)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := callFileAPI(tc.handler, tc.method, tc.target, "", tc.body)
+			if response.Code != http.StatusUnauthorized {
+				t.Fatalf("expected 401 without authentication, got %d: %s", response.Code, response.Body.String())
+			}
+		})
+	}
+
+	first := callFileAPI(filesHandler, http.MethodPut, "/api/v1/files?path=duplicate.txt", "alice-token", []byte("original"))
+	if first.Code != http.StatusCreated {
+		t.Fatalf("first upload status=%d body=%s", first.Code, first.Body.String())
+	}
+	second := callFileAPI(filesHandler, http.MethodPut, "/api/v1/files?path=duplicate.txt", "alice-token", []byte("replacement"))
+	if second.Code != http.StatusConflict {
+		t.Fatalf("overwrite should be rejected with 409, got %d: %s", second.Code, second.Body.String())
+	}
+	download := callFileAPI(fileHandler, http.MethodGet, "/api/v1/file?path=duplicate.txt", "alice-token", nil)
+	if download.Code != http.StatusOK || download.Body.String() != "original" {
+		t.Fatalf("original file was changed after rejected overwrite: status=%d body=%q", download.Code, download.Body.String())
+	}
+}

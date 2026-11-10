@@ -35,8 +35,6 @@ class NightSyncLaunchTest {
         composeRule.onNodeWithText("Connect").performClick()
         composeRule.onNodeWithText("Use HTTPS except for local emulator testing.").assertIsDisplayed()
     }
-}
-
 
     @Test
     fun memberCanSignInBrowseFilesAndCreateFolder() {
@@ -98,3 +96,4 @@ class NightSyncLaunchTest {
             server.shutdown()
         }
     }
+}

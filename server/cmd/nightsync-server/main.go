@@ -48,7 +48,7 @@ func safeRelativePath(root, raw string) (string, error) {
 	if raw == "" {
 		return root, nil
 	}
-	if strings.ContainsAny(raw, "\\:") || strings.ContainsRune(raw, 0) {
+	if strings.HasPrefix(raw, "/") || strings.ContainsAny(raw, "\\:") || strings.ContainsRune(raw, 0) {
 		return "", errors.New("invalid storage path")
 	}
 	raw = strings.TrimPrefix(raw, "/")

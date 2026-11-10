@@ -157,7 +157,7 @@ func TestSafeRelativePathRejectsWindowsReservedAndInvalidNames(t *testing.T) {
 	invalid := []string{
 		"CON", "con.txt", "PRN.log", "AUX", "NUL", "COM1", "COM9.txt",
 		"LPT1", "LPT9.csv", "trailing.", "trailing ", "bad?name.txt",
-		"bad*name", "bad|name", "bad<name", "bad>name", "bad\\"name",
+		"bad*name", "bad|name", "bad<name", "bad>name", "bad\"name",
 	}
 	for _, input := range invalid {
 		if _, err := safeRelativePath(root, input); err == nil {

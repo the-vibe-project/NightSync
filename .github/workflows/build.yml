@@ -34,12 +34,13 @@ jobs:
       - name: Android emulator UI tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
-          profile: Pixel_2
+          profile: pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
-          script: gradle --no-daemon connectedDebugAndroidTest
+          script: cd mobile/android && gradle --no-daemon connectedDebugAndroidTest
         env:
           ANDROID_SERIAL: emulator-5554
       - name: Build Android APK
@@ -66,7 +67,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $exe = (Resolve-Path "artifacts/NightSync-Windows/NightSync.Desktop.exe").Path
+          $exe = (Resolve-Path "artifacts/NightSync-Windows/NightSync.exe").Path
           $process = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 5
           $process.Refresh()

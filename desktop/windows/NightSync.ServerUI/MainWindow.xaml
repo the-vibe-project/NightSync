@@ -181,6 +181,6 @@
       </Border>
     </Grid>
 
-    <TextBlock Grid.Row="3" Text="NIGHTSYNC SERVER  •  DEVELOPMENT BUILD  •  LOCAL HOST" Foreground="#506782" FontSize="9" Margin="2,15,0,0"/>
+    <TextBlock Grid.Row="3" Text="NIGHTSYNC SERVER  •  A PRODUCT BY THE VIBE PROJECT  •  DEVELOPMENT BUILD" Foreground="#506782" FontSize="9" Margin="2,15,0,0"/>
   </Grid>
 </Window>

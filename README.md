@@ -35,8 +35,8 @@ See `docs/SERVER-UI.md` for installation steps.
 - Windows desktop sign-in and first-administrator setup.
 - Server control screen: choose server executable, main storage, backup destination and sync destination.
 - Start, stop and restart the local NightSync Server from the Windows app.
-- Optional automatic server start when the current Windows user signs in.
-- Server log file at `%AppData%\\NightSync\\server.log`.
+- Optional Windows boot service is configured from the Server dashboard; it starts before sign-in.
+- Server log file at `%ProgramData%\\NightSync\\server.log`.
 - Server status includes live storage volume readings and configured backup/sync destination paths.
 - Server file test: list, upload, download and delete.
 - Server listens only on `127.0.0.1:8787` in this development build.
@@ -47,7 +47,6 @@ See `docs/SERVER-UI.md` for installation steps.
 - The server is localhost-only. Do not expose it to LAN or the internet.
 - Windows service mode uses LocalSystem. Local folders are supported; mapped drive letters and network shares are not configured for service access.
 - Android's one-to-three daily sync times are stored locally as preferences only until file transfer is implemented.
-- The server is localhost-only. Do not expose it to LAN or the internet.
 - Sessions are held in memory and are lost on server restart; sign in again after restarting.
 - Android currently has sign-in and password-change foundation screens; remote access from a phone is not enabled in this localhost-only server build.
 - No encryption-at-rest, recycle bin, SMB, media streaming, camera backup or production security review yet.

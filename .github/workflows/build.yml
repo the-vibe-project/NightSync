@@ -31,6 +31,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Android emulator UI tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: Pixel_2
+          disable-animations: true
+          script: gradle --no-daemon connectedDebugAndroidTest
+        env:
+          ANDROID_SERIAL: emulator-5554
       - name: Build Android APK
         working-directory: mobile/android
         run: gradle --no-daemon assembleDebug
@@ -51,6 +62,18 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Publish Windows client
         run: dotnet publish desktop/windows/NightSync.Desktop/NightSync.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/NightSync-Windows
+      - name: Smoke test Windows client launch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = (Resolve-Path "artifacts/NightSync-Windows/NightSync.Desktop.exe").Path
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          $process.Refresh()
+          if ($process.HasExited) { throw "NightSync Windows client exited during startup." }
+          Stop-Process -Id $process.Id -Force
+          Write-Host "NightSync Windows client remained running after launch."
+
       - uses: actions/upload-artifact@v4
         with:
           name: NightSync-Windows

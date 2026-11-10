@@ -1,33 +1,38 @@
-# NightSync Server UI 0.8.0
+# NightSync Server UI 0.8.3
 
-The graphical server manager is a separate Windows application. It launches and monitors the NightSync Server process; it is not the server itself.
+The graphical Server UI is a separate dashboard. It can launch the server as a normal process or register it as a Windows Service.
 
 ## Install and start
-1. Download both GitHub Actions artifacts:
+1. Download both GitHub Actions artifacts from the same successful build:
    - `NightSync-Server-UI-windows-x64`
    - `NightSync-Server-windows-x64`
-2. Extract both ZIP artifacts into stable folders, for example:
-   - `C:\\NightSync\\ServerUI`
-   - `C:\\NightSync\\Server`
+2. Extract both ZIP artifacts into permanent folders, for example `C:\NightSync\ServerUI` and `C:\NightSync\Server`.
 3. Open `NightSync.ServerUI.exe`.
-4. Browse to `NightSync-Server-windows-x64.exe`.
-5. Choose the main storage folder and optionally choose backup and sync folders.
-6. Save configuration, then press Start.
+4. Under **Storage locations**, browse to `NightSync-Server-windows-x64.exe` and choose the main storage folder.
+5. Select **Save settings**.
+6. For pre-login startup, select **Enable before sign-in** and approve the Windows administrator prompt.
 
-Do not run the server executable from inside a temporary ZIP preview or a temporary extraction directory. Keep it in a permanent folder.
+Keep the server executable in a permanent location. Do not run it from a temporary ZIP preview or Downloads folder that you may later move or delete.
 
-## What this build does
-- Start and stop the server process launched by this UI.
-- Restart and poll the local health endpoint every three seconds.
-- Display server version, uptime and the selected drive's used/free capacity.
-- Save main, backup and sync paths.
-- View the latest 250 lines of the server log.
-- Optionally register the server executable to start when the current Windows user signs in.
+## Boot service
+- Registers the server with Windows Service Control Manager as Automatic (Delayed Start).
+- Runs the service as LocalSystem, so it starts before a user signs in.
+- Configures restart-on-failure recovery.
+- Closing the dashboard does not stop the service.
+- The service has access to the selected local main storage folder. Mapped network drives and remote shares are not configured.
+- Use **Remove boot service** to unregister it. This does not delete server files or user data.
+
+See [WINDOWS-SERVICE.md](WINDOWS-SERVICE.md) for the detailed setup.
+
+## Dashboard information
+- Start, stop, and restart the server.
+- Display server version, uptime, and selected drive capacity.
+- Save main, backup, and sync locations.
+- View recent server activity.
 
 ## Important limitations
-- Server is still localhost-only at `127.0.0.1:8787`.
-- The UI's Stop button can stop a process it started itself. If a server was started separately in a terminal, close that terminal to stop it.
-- Storage capacity shown is the whole selected drive, not NightSync folder usage.
-- Backup and sync paths are configuration only; automatic jobs are not active.
-- Auto-start launches the server process at Windows user sign-in. It is not a Windows Service and does not start before sign-in.
-- This is a development build, not production-ready or security-reviewed.
+- The server still listens only on `127.0.0.1:8787`. It cannot be reached from other computers or phones in this build.
+- Backup and sync paths are saved as configuration only; automatic jobs are not active.
+- The server boot service starts the local server at Windows startup, but no internet-aware sync worker exists yet.
+- The Android app saves one, two, or three daily preferred sync times locally. Those times do not start file transfers yet.
+- This is a development prototype, not production-ready or security-reviewed.

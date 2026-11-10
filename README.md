@@ -4,12 +4,12 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
-## v0.4 local server test
-- Local-only Go server with real `/health` and `/api/v1/status` endpoints.
-- Reports real storage volume capacity, process memory, heap allocation, goroutines and uptime.
-- Test file API: list, upload, download and delete files in the configured NightSyncData folder.
-- Windows Desktop and Android monitoring UI remain a separate client preview.
-- Windows Server build remains separate in GitHub Actions.
+## v0.5
+- Windows desktop client connects to the local NightSync Server.
+- Live status: server version, uptime, process memory, runtime, goroutines and real storage volume capacity.
+- Server file browser: list, upload, download and delete test files.
+- Local HTTP is allowed only for loopback testing; remote server profiles require HTTPS.
+- Android app remains a UI/connection-test preview; live remote connection awaits secure LAN/TLS and authentication.
 
-## Critical limitations
-The server binds only to `127.0.0.1:8787`. No authentication, TLS, user roles, LAN access, remote access, encryption, SMB, media streaming, backup/restore or Windows Service is implemented. Do not expose it to another device or the internet. Do not use it for important data. Client demo metrics remain labelled as demo until the clients are wired to the authenticated server API.
+## Safety and limitations
+Server has no authentication or TLS and listens only on 127.0.0.1:8787. Do not expose it to LAN or internet or store important/private files. Member/Admin role selector is only a UI preview and is not server-enforced. No encryption, backup, recycle bin, SMB, media streaming, sync or camera backup yet.

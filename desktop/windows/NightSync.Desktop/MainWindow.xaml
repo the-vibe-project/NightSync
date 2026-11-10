@@ -1,7 +1,7 @@
 <Window x:Class="NightSync.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NightSync" Height="760" Width="1180" MinHeight="650" MinWidth="980"
+        Title="NightSync" Height="800" Width="1200" MinHeight="650" MinWidth="980"
         WindowStartupLocation="CenterScreen" Background="#0B1220">
   <Grid Margin="22">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -41,39 +41,31 @@
             <TextBlock x:Name="PageTitle" Text="Server overview" FontSize="24" FontWeight="SemiBold" Foreground="White"/>
             <TextBlock x:Name="PageSubtitle" Text="Server health and storage overview." Foreground="#B7C4D8" TextWrapping="Wrap" Margin="0,7,0,18"/>
             <StackPanel x:Name="DashboardPanel">
-              <Border Background="#332B1B" CornerRadius="7" Padding="10" Margin="0,0,0,14">
-                <TextBlock Text="DEMO MONITORING DATA — illustrative values only; not readings from a connected server."
-                           Foreground="#FCD38D" TextWrapping="Wrap" FontWeight="SemiBold"/>
+              <Border Background="#1B2B45" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock Text="LIVE SERVER DATA" Foreground="#86EFAC" FontWeight="Bold"/>
+                  <TextBlock x:Name="LiveStatusText" Text="Not connected — use Connect server to begin." Foreground="White" FontSize="17" Margin="0,5,0,0"/>
+                  <TextBlock x:Name="LiveDetailsText" Text="The dashboard will show actual readings from your local NightSync Server." Foreground="#B7C4D8" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                </StackPanel>
               </Border>
-              <UniformGrid Columns="3" Rows="2">
+              <UniformGrid Columns="2" Rows="2">
                 <Border Background="#1B2B45" CornerRadius="8" Padding="13" Margin="0,0,8,8">
-                  <StackPanel><TextBlock Text="SERVER STATUS" Foreground="#93C5FD"/><TextBlock Text="Online (demo)" Foreground="#86EFAC" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
-                </Border>
-                <Border Background="#1B2B45" CornerRadius="8" Padding="13" Margin="0,0,8,8">
-                  <StackPanel><TextBlock Text="CPU USAGE" Foreground="#93C5FD"/><TextBlock Text="18%" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
+                  <StackPanel><TextBlock Text="STORAGE USED" Foreground="#93C5FD"/><TextBlock x:Name="StorageUsedText" Text="—" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
                 </Border>
                 <Border Background="#1B2B45" CornerRadius="8" Padding="13" Margin="0,0,0,8">
-                  <StackPanel><TextBlock Text="MEMORY" Foreground="#93C5FD"/><TextBlock Text="62%" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
+                  <StackPanel><TextBlock Text="STORAGE FREE" Foreground="#93C5FD"/><TextBlock x:Name="StorageFreeText" Text="—" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
                 </Border>
                 <Border Background="#1B2B45" CornerRadius="8" Padding="13" Margin="0,0,8,0">
-                  <StackPanel><TextBlock Text="STORAGE USED" Foreground="#93C5FD"/><TextBlock Text="1.2 TB / 4 TB" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
-                </Border>
-                <Border Background="#1B2B45" CornerRadius="8" Padding="13" Margin="0,0,8,0">
-                  <StackPanel><TextBlock Text="CONNECTED DEVICES" Foreground="#93C5FD"/><TextBlock Text="3 (demo)" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
+                  <StackPanel><TextBlock Text="PROCESS MEMORY" Foreground="#93C5FD"/><TextBlock x:Name="ProcessMemoryText" Text="—" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
                 </Border>
                 <Border Background="#1B2B45" CornerRadius="8" Padding="13">
-                  <StackPanel><TextBlock Text="UPTIME" Foreground="#93C5FD"/><TextBlock Text="12d 04h (demo)" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
+                  <StackPanel><TextBlock Text="UPTIME" Foreground="#93C5FD"/><TextBlock x:Name="UptimeText" Text="—" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel>
                 </Border>
               </UniformGrid>
-              <TextBlock Text="Storage volumes" Foreground="White" FontSize="17" FontWeight="SemiBold" Margin="0,14,0,8"/>
-              <TextBlock Text="Volume A  ·  1.2 TB used of 4 TB  ·  Demo" Foreground="#DCE6F5"/>
-              <ProgressBar Value="30" Height="12" Margin="0,7,0,10"/>
-              <TextBlock Text="Recent server events" Foreground="White" FontSize="17" FontWeight="SemiBold" Margin="0,8,0,8"/>
-              <TextBlock Text="• Health check completed (demo)&#10;• Backup destination available (demo)&#10;• No sync errors reported (demo)"
-                         Foreground="#B7C4D8" TextWrapping="Wrap"/>
+              <TextBlock x:Name="StoragePathText" Text="Storage path: not connected" Foreground="#B7C4D8" TextWrapping="Wrap" Margin="0,12,0,0"/>
               <WrapPanel Margin="0,18,0,0">
-                <Button Content="Refresh demo status" Padding="15,8" Margin="0,0,8,0" Click="Refresh_Click"/>
-                <Button x:Name="AdminActionButton" Content="Run admin diagnostics (demo)" Padding="15,8" Click="AdminDiagnostics_Click"/>
+                <Button Content="Refresh live status" Padding="15,8" Margin="0,0,8,0" Click="RefreshLiveStatus_Click"/>
+                <Button x:Name="AdminActionButton" Content="Admin diagnostics (preview)" Padding="15,8" Click="AdminDiagnostics_Click"/>
               </WrapPanel>
               <TextBlock x:Name="RoleNotice" Text="Member access: monitoring is read-only." Foreground="#93C5FD" Margin="0,12,0,0"/>
             </StackPanel>
@@ -82,11 +74,23 @@
               <ComboBox x:Name="ServerProfiles" Height="32" Margin="0,7,0,12" SelectionChanged="ServerProfiles_SelectionChanged" DisplayMemberPath="Name"/>
               <TextBlock Text="Server name" Foreground="#DCE6F5"/>
               <TextBox x:Name="ServerName" Height="32" Padding="7" Text="My NightSync" Margin="0,5,0,10"/>
-              <TextBlock Text="Server address (HTTPS)" Foreground="#DCE6F5"/>
+              <TextBlock Text="Server address (local test: http://127.0.0.1:8787; remote servers must use HTTPS)" Foreground="#DCE6F5"/>
               <TextBox x:Name="ServerAddress" Height="32" Padding="7" Margin="0,5,0,12"/>
-              <WrapPanel><Button Content="Save server" Padding="15,8" Margin="0,0,8,0" Click="SaveServer_Click"/><Button Content="Test /health" Padding="15,8" Click="TestConnection_Click"/></WrapPanel>
+              <WrapPanel><Button Content="Save server" Padding="15,8" Margin="0,0,8,0" Click="SaveServer_Click"/><Button Content="Test /health + load status" Padding="15,8" Click="TestConnection_Click"/></WrapPanel>
               <TextBlock x:Name="ConnectionStatus" Text="Not connected" Foreground="White" FontSize="18" Margin="0,15,0,5"/>
               <TextBlock x:Name="ConnectionDetails" Text="Save an HTTPS address and test when a compatible server is available." Foreground="#B7C4D8" TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel x:Name="FilesPanel" Visibility="Collapsed">
+              <TextBlock Text="Server files" Foreground="White" FontSize="20" FontWeight="SemiBold"/>
+              <TextBlock Text="Local development server only. Test with non-sensitive files." Foreground="#FCD38D" Margin="0,5,0,12"/>
+              <WrapPanel Margin="0,0,0,10">
+                <Button Content="Refresh list" Padding="12,7" Margin="0,0,8,0" Click="RefreshFiles_Click"/>
+                <Button Content="Upload file" Padding="12,7" Margin="0,0,8,0" Click="UploadFile_Click"/>
+                <Button Content="Download selected" Padding="12,7" Margin="0,0,8,0" Click="DownloadFile_Click"/>
+                <Button Content="Delete selected" Padding="12,7" Click="DeleteFile_Click"/>
+              </WrapPanel>
+              <ListBox x:Name="FilesList" MinHeight="260" Background="#0B1220" Foreground="White" BorderBrush="#31425C"/>
+              <TextBlock x:Name="FilesMessage" Foreground="#B7C4D8" TextWrapping="Wrap" Margin="0,10,0,0"/>
             </StackPanel>
             <StackPanel x:Name="PlaceholderPanel" Visibility="Collapsed">
               <Border Background="#332B1B" CornerRadius="7" Padding="10"><TextBlock Text="Preview screen — server integration is not yet enabled." Foreground="#FCD38D" TextWrapping="Wrap"/></Border>

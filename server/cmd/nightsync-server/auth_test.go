@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -76,5 +77,23 @@ func TestLogoutRevokesSession(t *testing.T) {
 	}
 	if store.logout(token) {
 		t.Fatal("second logout for a revoked token should fail")
+	}
+}
+
+
+func TestNullUserDatabaseCanBeInitialized(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "users.json"), []byte("null"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := newAuthStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.createFirstAdmin("owner", "A-Strong-Password-123!"); err != nil {
+		t.Fatalf("first admin setup should recover from a null user map: %v", err)
+	}
+	if store.count() != 1 {
+		t.Fatalf("expected one initialized user, got %d", store.count())
 	}
 }

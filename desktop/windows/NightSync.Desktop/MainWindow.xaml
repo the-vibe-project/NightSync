@@ -103,6 +103,11 @@
                 <Button Content="↓ Download" Padding="14,8" Margin="0,0,8,8" Click="DownloadFile_Click"/>
                 <Button Content="Delete" Padding="14,8" Background="#402638" Foreground="#FFD8E3" Margin="0,0,8,8" Click="DeleteFile_Click"/>
               </WrapPanel>
+              <DockPanel Margin="0,0,0,12" LastChildFill="True">
+                <Button Content="Create folder" DockPanel.Dock="Right" Padding="13,8" Margin="10,0,0,0" Click="CreateFolder_Click"/>
+                <TextBox x:Name="NewFolderName" Height="36" Padding="9" Background="#0B1422" Foreground="#EAF6FF" BorderBrush="#253C59"
+                         ToolTip="Enter a name for the new folder"/>
+              </DockPanel>
               <ListView x:Name="FilesList" MinHeight="330" Background="#0B1422" Foreground="#EAF6FF"
                         BorderBrush="#253C59" BorderThickness="1" MouseDoubleClick="FilesList_MouseDoubleClick"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">

@@ -97,3 +97,44 @@ func TestNullUserDatabaseCanBeInitialized(t *testing.T) {
 		t.Fatalf("expected one initialized user, got %d", store.count())
 	}
 }
+
+
+func TestAccountChangesRollBackWhenDatabaseWriteFails(t *testing.T) {
+	store, err := newAuthStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.createFirstAdmin("owner", "A-Strong-Password-123!"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.create("member", "Member-Strong-Password-1!", "member", true); err != nil {
+		t.Fatal(err)
+	}
+	originalCount := store.count()
+	store.path = filepath.Join(t.TempDir(), "missing-parent", "users.json")
+
+	if err := store.create("another", "Another-Strong-Password-1!", "member", true); err == nil {
+		t.Fatal("expected create to fail when the database path is unavailable")
+	}
+	if store.count() != originalCount {
+		t.Fatal("failed user creation remained in memory")
+	}
+
+	if err := store.change("owner", "A-Strong-Password-123!", "A-New-Strong-Password-123!"); err == nil {
+		t.Fatal("expected password change to fail when the database path is unavailable")
+	}
+	if _, _, err := store.login("owner", "A-Strong-Password-123!"); err != nil {
+		t.Fatalf("old password should remain valid after failed change: %v", err)
+	}
+
+	if _, err := store.reset("member"); err == nil {
+		t.Fatal("expected password reset to fail when the database path is unavailable")
+	}
+	if _, _, err := store.login("member", "Member-Strong-Password-1!"); err != nil {
+		t.Fatalf("old password should remain valid after failed reset: %v", err)
+	}
+	member := store.users["member"]
+	if !member.MustChangePassword {
+		t.Fatal("failed reset changed the user's temporary-password flag")
+	}
+}

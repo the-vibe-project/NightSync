@@ -265,3 +265,21 @@ func TestRequestFileRootRejectsUsersRootSymlink(t *testing.T) {
 		t.Fatalf("server created data outside the configured storage root: %+v", entries)
 	}
 }
+
+
+func TestFileManagerAcceptsChunkedUploadWithoutContentLength(t *testing.T) {
+	setupFileAPITest(t)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/files?path=chunked.txt", strings.NewReader("streamed payload"))
+	request.ContentLength = -1
+	request.Header.Set("Authorization", "Bearer alice-token")
+	response := httptest.NewRecorder()
+	filesHandler(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("chunked upload should succeed; status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	download := callFileAPI(fileHandler, http.MethodGet, "/api/v1/file?path=chunked.txt", "alice-token", nil)
+	if download.Code != http.StatusOK || download.Body.String() != "streamed payload" {
+		t.Fatalf("chunked upload payload mismatch; status=%d body=%q", download.Code, download.Body.String())
+	}
+}

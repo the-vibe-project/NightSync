@@ -20,4 +20,4 @@
 The server intentionally listens on `127.0.0.1:8787`. It is not reachable from another device. Keep it local; do not expose it to a LAN or the internet. Secure remote access must be completed before the Android app can synchronize with the host.
 
 ## Quality status
-GitHub Actions builds the Android APK, Windows desktop, Windows Server UI, and Windows server executable. The Windows service lifecycle is being smoke-tested in CI. A green compile/build does not replace an actual install/reboot test on the target PC.
+GitHub Actions builds the Android APK, Windows desktop, Windows Server UI, and Windows server executable. The Windows service lifecycle passes a Windows-runner CI smoke test (register, start, health check, stop). A green CI test does not replace an actual install/reboot test on the target PC.

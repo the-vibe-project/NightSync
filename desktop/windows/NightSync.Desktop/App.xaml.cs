@@ -21,6 +21,7 @@ public partial class App : Application
                 var main = new MainWindow();
                 MainWindow = main;
                 main.Show();
+                ShutdownMode = ShutdownMode.OnMainWindowClose;
                 return;
             }
             catch (Exception ex)

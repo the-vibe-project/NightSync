@@ -44,7 +44,6 @@ public partial class LoginWindow : Window
             AppSession.Role=root.GetProperty("role").GetString()!;
             AppSession.MustChangePassword=root.GetProperty("must_change_password").GetBoolean();
             DialogResult=true;
-            Close();
         }
         catch(Exception ex){MessageText.Text=ex.Message;}
     }

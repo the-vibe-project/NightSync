@@ -4,6 +4,11 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
+## v0.8.1 desktop post-login lifecycle fix
+- Fixed WPF shutdown behavior: closing the successful modal login no longer shuts down the application before the main workspace is displayed.
+- The application now stays alive during login and switches to closing with the main workspace after sign-in.
+- Removed redundant explicit close after setting the login dialog result.
+
 ## v0.8.0 graphical server manager
 - Added a separate WPF NightSync Server UI with start/stop/restart, health polling, drive capacity, storage destination setup, logs and Windows sign-in auto-start.
 - Added a dedicated GitHub Actions artifact for the Server UI.

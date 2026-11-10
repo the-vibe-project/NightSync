@@ -500,8 +500,8 @@ fun NightSyncAuthApp(
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { uploadLauncher.launch(arrayOf("*/*")) }, enabled = !filesLoading, modifier = Modifier.weight(1f)) { Text("↑ Upload") }
-                            Button(onClick = { fileToDownload?.let { downloadLauncher.launch(it.name) } }, enabled = false, modifier = Modifier.weight(1f)) { Text("↓ Download") }
+                            Button(onClick = { uploadLauncher.launch(arrayOf("*/*")) }, enabled = !filesLoading, modifier = Modifier.weight(1f)) { Text("↑ Upload files") }
+                            OutlinedButton(onClick = { refreshFiles() }, enabled = !filesLoading, modifier = Modifier.weight(1f)) { Text("Refresh") }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(

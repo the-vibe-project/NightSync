@@ -4,6 +4,13 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
+## v0.8.3 premium UI and Windows boot service
+- Refreshed the Windows Server dashboard with a minimal dark interface and champagne-gold accents, simpler labels and clearer server status.
+- Added Windows Service Control Manager support to the server executable.
+- The Server dashboard can register NightSync as a delayed automatic Windows service, before a user signs in. It runs as LocalSystem and configures restart-on-failure recovery.
+- The Android app has a saved daily schedule preference for one, two or three sync times, with editable time pickers.
+- The Android schedule is currently a saved preference only. It does not trigger file transfers in this prototype.
+
 ## v0.8.2 Server UI startup fix
 - Fixed the Server UI WPF application startup: `App.xaml` now declares `StartupUri="MainWindow.xaml"`. Without this, the application process could start successfully but never create or display its main window.
 - Added a visible fatal startup exception dialog to help diagnose future UI initialization failures.
@@ -36,7 +43,10 @@ See `docs/SERVER-UI.md` for installation steps.
 
 ## Important limitations
 - Backup and sync destinations can be selected and saved, but automatic backup and two-way sync jobs are not implemented yet.
-- Auto-start is a Windows user sign-in startup entry, not a Windows Service and not a pre-login boot service.
+- The optional boot service starts the server before sign-in, but this build still has no internet-aware sync worker.
+- The server is localhost-only. Do not expose it to LAN or the internet.
+- Windows service mode uses LocalSystem. Local folders are supported; mapped drive letters and network shares are not configured for service access.
+- Android's one-to-three daily sync times are stored locally as preferences only until file transfer is implemented.
 - The server is localhost-only. Do not expose it to LAN or the internet.
 - Sessions are held in memory and are lost on server restart; sign in again after restarting.
 - Android currently has sign-in and password-change foundation screens; remote access from a phone is not enabled in this localhost-only server build.

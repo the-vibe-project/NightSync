@@ -52,7 +52,7 @@
 
         <Grid>
             <StackPanel>
-                <TextBlock Text="NIGHTSYNC" Foreground="{StaticResource Gold}" FontSize="11" FontWeight="Bold" CharacterSpacing="180"/>
+                <TextBlock Text="NIGHTSYNC" Foreground="{StaticResource Gold}" FontSize="11" FontWeight="Bold"/>
                 <TextBlock Text="Your private cloud" Foreground="{StaticResource MainText}" FontSize="30" FontWeight="SemiBold" Margin="0,5,0,0"/>
                 <TextBlock Text="A simple view of your server and storage." Foreground="{StaticResource Muted}" FontSize="13" Margin="0,4,0,0"/>
             </StackPanel>
@@ -130,6 +130,6 @@
                 </DockPanel>
             </Border>
         </Grid>
-        <TextBlock Grid.Row="3" Text="NIGHTSYNC  •  DEVELOPMENT BUILD  •  LOCAL PC ONLY" Foreground="#667386" FontSize="9" CharacterSpacing="110" Margin="0,18,0,0"/>
+        <TextBlock Grid.Row="3" Text="NIGHTSYNC  •  DEVELOPMENT BUILD  •  LOCAL PC ONLY" Foreground="#667386" FontSize="9" Margin="0,18,0,0"/>
     </Grid>
 </Window>

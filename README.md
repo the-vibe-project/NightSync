@@ -4,6 +4,10 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
+## v0.8.2 Server UI startup fix
+- Fixed the Server UI WPF application startup: `App.xaml` now declares `StartupUri="MainWindow.xaml"`. Without this, the application process could start successfully but never create or display its main window.
+- Added a visible fatal startup exception dialog to help diagnose future UI initialization failures.
+
 ## v0.8.1 desktop post-login lifecycle fix
 - Fixed WPF shutdown behavior: closing the successful modal login no longer shuts down the application before the main workspace is displayed.
 - The application now stays alive during login and switches to closing with the main workspace after sign-in.

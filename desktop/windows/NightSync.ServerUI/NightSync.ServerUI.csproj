@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>NightSync.ServerUI</AssemblyName>
-    <Version>0.8.0</Version>
+    <Version>0.8.2</Version>
     <RootNamespace>NightSync.ServerUI</RootNamespace>
   </PropertyGroup>
 </Project>

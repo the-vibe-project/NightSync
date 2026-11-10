@@ -31,13 +31,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - name: Android emulator UI tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 35
           target: google_apis
           arch: x86_64
-          profile: pixel_2
+          profile: pixel_7_pro
+          avd-name: nightsync-test
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
           disable-animations: true
           script: cd mobile/android && gradle --no-daemon connectedDebugAndroidTest
@@ -148,6 +154,18 @@ jobs:
           }
       - name: Publish single Server app
         run: dotnet publish desktop/windows/NightSync.ServerUI/NightSync.ServerUI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/NightSync-Server
+      - name: Smoke test Server dashboard launch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = (Resolve-Path "artifacts/NightSync-Server/NightSync.Server.exe").Path
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 6
+          $process.Refresh()
+          if ($process.HasExited) { throw "NightSync Server dashboard exited during startup." }
+          Stop-Process -Id $process.Id -Force
+          Write-Host "NightSync Server dashboard remained running after launch."
+
       - uses: actions/upload-artifact@v4
         with:
           name: NightSync-Server

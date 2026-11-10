@@ -1,64 +1,57 @@
 # NightSync
 
-**By The Vibe Project** — free, open-source personal cloud software.
+**A product by The Vibe Project**  
+Free and open-source personal cloud software.
 
-Free and open-source self-hosted NAS and personal cloud.
+> **Development status: not ready for public production release.** The current build is a local-host prototype. Secure remote connectivity and real scheduled synchronization are still being developed.
 
-**Status: early development prototype. Not production-ready or security-reviewed.**
+## Three applications
 
-## v0.9.0 — three-app direction and private file manager
-- Product publisher and company branding: The Vibe Project.
-- Three application deliverables: NightSync Server, NightSync for Windows, and NightSync for Android.
-- NightSync Server bundles its engine and guided first-run setup wizard in one Windows application.
-- Windows and Android clients include folder-aware private file manager operations: list, create folders, upload, download and delete.
-- Server file storage is separated by user account and rejects traversal and symbolic-link paths.
-- Android emulator launch/login tests and Windows client/service smoke tests are being added to release CI.
+1. **NightSync Server** — one Windows application containing the dashboard, first-run wizard, and bundled background server engine.
+2. **NightSync for Windows** — desktop client with sign-in, server connection profile, overview, and private file manager.
+3. **NightSync for Android** — mobile client with sign-in, private file manager, and preferred sync-time settings.
 
-## v0.8.3 premium UI and Windows boot service
-- Refreshed the Windows Server dashboard with a minimal dark interface and champagne-gold accents, simpler labels and clearer server status.
-- Added Windows Service Control Manager support to the server executable.
-- The Server dashboard can register NightSync as a delayed automatic Windows service, before a user signs in. It runs as LocalSystem and configures restart-on-failure recovery.
-- The Android app has a saved daily schedule preference for one, two or three sync times, with editable time pickers.
-- The Android schedule is currently a saved preference only. It does not trigger file transfers in this prototype.
+## Current capabilities
 
-## v0.8.2 Server UI startup fix
-- Fixed the Server UI WPF application startup: `App.xaml` now declares `StartupUri="MainWindow.xaml"`. Without this, the application process could start successfully but never create or display its main window.
-- Added a visible fatal startup exception dialog to help diagnose future UI initialization failures.
+- First-run wizard selects the host storage location, installs the Windows background service, and creates the first owner account.
+- The Windows service is configured for delayed automatic startup before Windows sign-in and restart-on-failure recovery.
+- Owner/admin and member accounts have individual private storage roots.
+- File manager supports folder listing/navigation, create folder, upload, download, file deletion, and empty-folder deletion.
+- Uploads are capped at 100 MB in this prototype. Existing files are not silently overwritten.
+- Path traversal, symbolic links, Windows reserved filenames, and unauthenticated file operations are rejected.
+- Android lets users save one, two, or three preferred sync times per day. These times are preferences only for now.
 
-## v0.8.1 desktop post-login lifecycle fix
-- Fixed WPF shutdown behavior: closing the successful modal login no longer shuts down the application before the main workspace is displayed.
-- The application now stays alive during login and switches to closing with the main workspace after sign-in.
-- Removed redundant explicit close after setting the login dialog result.
+## Build artifacts
 
-## v0.8.0 graphical server manager
-- Added a separate WPF NightSync Server UI with start/stop/restart, health polling, drive capacity, storage destination setup, logs and Windows sign-in auto-start.
-- Added a dedicated GitHub Actions artifact for the Server UI.
-- Added a visible startup error dialog to NightSync Desktop if the main window fails after login.
+GitHub Actions produces three artifacts:
+- `NightSync-Server`
+- `NightSync-Windows`
+- `NightSync-Android`
 
-See `docs/SERVER-UI.md` for installation steps.
+Use artifacts from the **same successful workflow run**. Do not mix packages from different commits.
 
-## v0.7.1 build-fix package
-- Removed duplicate server setup panel declarations that caused WPF CS0102 build errors.
-- Windows server CI now runs `go mod tidy` before compiling, generating required module checksums (`go.sum`).
+## Current release blockers
 
-## v0.7 development features
-- Windows desktop sign-in and first-administrator setup.
-- Server control screen: choose server executable, main storage, backup destination and sync destination.
-- Start, stop and restart the local NightSync Server from the Windows app.
-- Optional Windows boot service is configured from the Server dashboard; it starts before sign-in.
-- Server log file at `%ProgramData%\\NightSync\\server.log`.
-- Server status includes live storage volume readings and configured backup/sync destination paths.
-- Server file test: list, upload, download and delete.
-- Server listens only on `127.0.0.1:8787` in this development build.
+- The server listens only on `127.0.0.1:8787`; a phone or another PC cannot connect to it yet.
+- TLS, secure device pairing, and remote authentication are not implemented.
+- There is no real sync engine, offline queue, conflict resolution, or internet-reconnect synchronization.
+- Android schedule choices are saved locally but do not start transfers.
+- Backup/restore jobs, camera upload, SMB, media streaming, recycle bin, encryption at rest, and a full security review are not implemented.
+- A CI Windows VM test does not replace an install/reboot test on a customer's actual PC.
 
-## Important limitations
-- Backup and sync destinations can be selected and saved, but automatic backup and two-way sync jobs are not implemented yet.
-- The optional boot service starts the server before sign-in, but this build still has no internet-aware sync worker.
-- The server is localhost-only. Do not expose it to LAN or the internet.
-- Windows service mode uses LocalSystem. Local folders are supported; mapped drive letters and network shares are not configured for service access.
-- Android's one-to-three daily sync times are stored locally as preferences only until file transfer is implemented.
-- Sessions are held in memory and are lost on server restart; sign in again after restarting.
-- Android currently has sign-in and password-change foundation screens; remote access from a phone is not enabled in this localhost-only server build.
-- No encryption-at-rest, recycle bin, SMB, media streaming, camera backup or production security review yet.
+## Quality checks
 
-See `docs/SERVER-UI.md`, `docs/WINDOWS-SERVICE.md`, `docs/DEVELOPMENT-STATUS.md`, and `docs/ACCOUNT-SETUP.md`.
+The workflow runs:
+- Go API unit and customer-scenario tests.
+- Windows server-service register/start/health/stop smoke test.
+- Windows Server dashboard launch smoke test.
+- Windows client publish and launch smoke test.
+- Android emulator launch and login validation tests.
+- APK and Windows artifact publishing.
+
+See:
+- `docs/DEVELOPMENT-STATUS.md`
+- `docs/SERVER-UI.md`
+- `docs/WINDOWS-SERVICE.md`
+- `docs/DESIGN-SYSTEM.md`
+- `docs/ACCOUNT-SETUP.md`

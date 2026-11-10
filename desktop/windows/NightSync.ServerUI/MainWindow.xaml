@@ -89,8 +89,12 @@
                             <Button Content="Stop" Width="86" Height="39" Background="#293342" Foreground="{StaticResource MainText}" Margin="0,0,8,0" Click="Stop_Click"/>
                             <Button Content="Restart" Width="98" Height="39" Background="#293342" Foreground="{StaticResource MainText}" Click="Restart_Click"/>
                         </WrapPanel>
-                        <CheckBox x:Name="AutoStartCheck" Content="Start when I sign in to Windows" Checked="AutoStart_Changed" Unchecked="AutoStart_Changed"/>
-                        <TextBlock x:Name="ControlMessage" Foreground="{StaticResource Gold}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button Content="Enable before sign-in" Padding="14,9" Margin="0,0,8,0" Click="InstallService_Click"/>
+                            <Button Content="Remove boot service" Padding="14,9" Background="#293342" Foreground="{StaticResource MainText}" Click="RemoveService_Click"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="ServiceText" Text="Boot service: checking…" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                        <TextBlock x:Name="ControlMessage" Foreground="{StaticResource Gold}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
 

@@ -31,7 +31,7 @@
           <Button Content="Server logs" Padding="11" HorizontalContentAlignment="Left" Margin="0,0,0,7" Click="Logs_Click"/>
           <Separator Margin="0,12,0,12" Background="#31425C"/>
           <TextBlock Text="SERVER HOST" Foreground="#8FA3BF" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
-          <Button Content="Server control &amp; setup" Padding="9" HorizontalContentAlignment="Left" Click="Host_Click"/>
+          <Button Content="Server control &amp; setup" Padding="9" HorizontalContentAlignment="Left" Visibility="Collapsed" Click="Host_Click"/>
           <TextBlock Text="Start, stop and configure this PC as your host." Foreground="#8293AB" FontSize="10" TextWrapping="Wrap" Margin="2,7,2,0"/>
         </StackPanel>
       </Border>
@@ -81,16 +81,41 @@
               <TextBlock x:Name="ConnectionDetails" Text="Save an HTTPS address and test when a compatible server is available." Foreground="#B7C4D8" TextWrapping="Wrap"/>
             </StackPanel>
             <StackPanel x:Name="FilesPanel" Visibility="Collapsed">
-              <TextBlock Text="Server files" Foreground="White" FontSize="20" FontWeight="SemiBold"/>
-              <TextBlock Text="Local development server only. Test with non-sensitive files." Foreground="#FCD38D" Margin="0,5,0,12"/>
+              <Grid Margin="0,0,0,14">
+                <StackPanel>
+                  <TextBlock Text="Your files" Foreground="White" FontSize="22" FontWeight="SemiBold"/>
+                  <TextBlock Text="A private space for your documents, folders and media." Foreground="#91A6C6" FontSize="12" Margin="0,5,0,0"/>
+                </StackPanel>
+                <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="#17283B" CornerRadius="20" Padding="12,7">
+                  <TextBlock Text="PRIVATE STORAGE" Foreground="#66E6FF" FontSize="9" FontWeight="Bold"/>
+                </Border>
+              </Grid>
+              <Border Background="#111D31" BorderBrush="#253C59" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,12">
+                <DockPanel LastChildFill="True">
+                  <Button Content="‹ Back" DockPanel.Dock="Left" Padding="14,8" Margin="0,0,12,0" Click="FilesBack_Click"/>
+                  <TextBlock x:Name="FilesBreadcrumb" Text="My files" Foreground="#CFE8FF" FontSize="13" VerticalAlignment="Center"/>
+                  <Button Content="Refresh" DockPanel.Dock="Right" Padding="14,8" Margin="12,0,0,0" Click="RefreshFiles_Click"/>
+                </DockPanel>
+              </Border>
               <WrapPanel Margin="0,0,0,10">
-                <Button Content="Refresh list" Padding="12,7" Margin="0,0,8,0" Click="RefreshFiles_Click"/>
-                <Button Content="Upload file" Padding="12,7" Margin="0,0,8,0" Click="UploadFile_Click"/>
-                <Button Content="Download selected" Padding="12,7" Margin="0,0,8,0" Click="DownloadFile_Click"/>
-                <Button Content="Delete selected" Padding="12,7" Click="DeleteFile_Click"/>
+                <Button Content="＋ New folder" Padding="14,8" Margin="0,0,8,8" Click="CreateFolder_Click"/>
+                <Button Content="↑ Upload" Padding="14,8" Margin="0,0,8,8" Click="UploadFile_Click"/>
+                <Button Content="↓ Download" Padding="14,8" Margin="0,0,8,8" Click="DownloadFile_Click"/>
+                <Button Content="Delete" Padding="14,8" Background="#402638" Foreground="#FFD8E3" Margin="0,0,8,8" Click="DeleteFile_Click"/>
               </WrapPanel>
-              <ListBox x:Name="FilesList" MinHeight="260" Background="#0B1220" Foreground="White" BorderBrush="#31425C"/>
-              <TextBlock x:Name="FilesMessage" Foreground="#B7C4D8" TextWrapping="Wrap" Margin="0,10,0,0"/>
+              <ListView x:Name="FilesList" MinHeight="330" Background="#0B1422" Foreground="#EAF6FF"
+                        BorderBrush="#253C59" BorderThickness="1" MouseDoubleClick="FilesList_MouseDoubleClick"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.View>
+                  <GridView>
+                    <GridViewColumn Header="NAME" Width="280" DisplayMemberBinding="{Binding Name}"/>
+                    <GridViewColumn Header="TYPE" Width="95" DisplayMemberBinding="{Binding Kind}"/>
+                    <GridViewColumn Header="SIZE" Width="100" DisplayMemberBinding="{Binding SizeText}"/>
+                    <GridViewColumn Header="MODIFIED" Width="145" DisplayMemberBinding="{Binding ModifiedText}"/>
+                  </GridView>
+                </ListView.View>
+              </ListView>
+              <TextBlock x:Name="FilesMessage" Foreground="#91A6C6" TextWrapping="Wrap" Margin="0,10,0,0"/>
             </StackPanel>
             <StackPanel x:Name="HostPanel" Visibility="Collapsed">
               <TextBlock Text="This PC — NightSync Server" Foreground="White" FontSize="20" FontWeight="SemiBold"/>

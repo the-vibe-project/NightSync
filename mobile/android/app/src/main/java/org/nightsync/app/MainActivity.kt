@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             NightSyncAuthApp(
-                initialAddress = prefs.getString("server_address", "http://10.0.2.2:8787") ?: "http://10.0.2.2:8787",
+                initialAddress = prefs.getString("server_address", "") ?: "",
                 onSaveAddress = { prefs.edit().putString("server_address", it).apply() },
                 initialSyncCount = prefs.getInt("sync_count", 1),
                 initialSyncTimes = savedTimes,

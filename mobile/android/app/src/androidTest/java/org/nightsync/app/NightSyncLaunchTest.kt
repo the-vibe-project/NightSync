@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
@@ -29,6 +30,7 @@ class NightSyncLaunchTest {
 
     @Test
     fun invalidRemoteHttpAddressIsRejectedBeforeLogin() {
+        composeRule.onNodeWithText("Server address").performTextClearance()
         composeRule.onNodeWithText("Server address").performTextInput("http://192.0.2.10:8787")
         composeRule.onNodeWithText("User ID").performTextInput("testuser")
         composeRule.onNodeWithText("Password").performTextInput("SomeStrongPassword123!")
@@ -52,6 +54,7 @@ class NightSyncLaunchTest {
                     .setBody("""{"items":[{"name":"Documents","path":"Documents","is_dir":true,"size_bytes":0,"modified":"2026-11-10T10:00:00Z"},{"name":"hello.txt","path":"hello.txt","is_dir":false,"size_bytes":12,"modified":"2026-11-10T10:00:00Z"}],"count":2,"path":"","storage_scope":"private-user"}""")
             )
 
+            composeRule.onNodeWithText("Server address").performTextClearance()
             composeRule.onNodeWithText("Server address").performTextInput(server.url("/").toString().trimEnd('/'))
             composeRule.onNodeWithText("User ID").performTextInput("alice")
             composeRule.onNodeWithText("Password").performTextInput("StrongTestPassword123!")

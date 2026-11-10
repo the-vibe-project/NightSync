@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 	"time"
 )
 
-const version = "0.8.3"
+const version = "0.9.0"
 
 var startedAt = time.Now()
 var dataDir string
@@ -42,101 +43,283 @@ func method(w http.ResponseWriter, r *http.Request, allowed string) bool {
 	}
 	return true
 }
-func safeName(name string) (string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" || name == "." || name == ".." || strings.EqualFold(name, "users.json") ||
-		strings.EqualFold(name, "users.json.tmp") || strings.ContainsAny(name, `/\:`) || strings.ContainsRune(name, 0) {
-		return "", errors.New("invalid file name")
+func safeRelativePath(root, raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return root, nil
 	}
-	return name, nil
+	if strings.ContainsAny(raw, "\\:") || strings.ContainsRune(raw, 0) {
+		return "", errors.New("invalid storage path")
+	}
+	raw = strings.TrimPrefix(raw, "/")
+	parts := strings.Split(raw, "/")
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." ||
+			strings.EqualFold(part, "users.json") || strings.EqualFold(part, "users.json.tmp") ||
+			strings.HasPrefix(part, ".upload-") {
+			return "", errors.New("invalid storage path")
+		}
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	target := filepath.Join(rootAbs, filepath.FromSlash(strings.Join(parts, "/")))
+	rel, err := filepath.Rel(rootAbs, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+		return "", errors.New("storage path is outside the user folder")
+	}
+
+	current := rootAbs
+	for _, part := range parts {
+		current = filepath.Join(current, part)
+		info, statErr := os.Lstat(current)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				continue
+			}
+			return "", statErr
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", errors.New("symbolic links are not allowed in cloud storage")
+		}
+	}
+	return target, nil
 }
+
+func requestFileRoot(r *http.Request) (string, error) {
+	if auth == nil {
+		return "", errors.New("authentication is not ready")
+	}
+	user, ok := auth.requestUser(r)
+	if !ok {
+		return "", errors.New("authentication required")
+	}
+	root := filepath.Join(dataDir, "users", strings.ToLower(user.Username))
+	if err := os.MkdirAll(root, 0700); err != nil {
+		return "", fmt.Errorf("cannot prepare private storage: %w", err)
+	}
+	return root, nil
+}
+
+func relativeStoragePath(root, target string) string {
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == "." {
+		return ""
+	}
+	return filepath.ToSlash(rel)
+}
+
 func filesHandler(w http.ResponseWriter, r *http.Request) {
+	root, err := requestFileRoot(r)
+	if err != nil {
+		writeJSON(w, 401, apiError{Error: "authentication required"})
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
-		entries, err := os.ReadDir(dataDir)
+		folder, err := safeRelativePath(root, r.URL.Query().Get("path"))
 		if err != nil {
-			writeJSON(w, 500, apiError{Error: "could not read storage directory"})
+			writeJSON(w, 400, apiError{Error: "invalid folder path"})
 			return
 		}
-		files := make([]map[string]any, 0, len(entries))
-		for _, e := range entries {
-			if e.IsDir() || strings.EqualFold(e.Name(), "users.json") || strings.HasPrefix(e.Name(), ".upload-") {
-				continue
-			}
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			files = append(files, map[string]any{"name": e.Name(), "size_bytes": info.Size(), "modified": info.ModTime().UTC().Format(time.RFC3339)})
+		info, err := os.Stat(folder)
+		if err != nil || !info.IsDir() {
+			writeJSON(w, 404, apiError{Error: "folder not found"})
+			return
 		}
-		writeJSON(w, 200, map[string]any{"items": files, "count": len(files)})
+		entries, err := os.ReadDir(folder)
+		if err != nil {
+			writeJSON(w, 500, apiError{Error: "could not read folder"})
+			return
+		}
+		items := make([]map[string]any, 0, len(entries))
+		for _, entry := range entries {
+			entryInfo, statErr := os.Lstat(filepath.Join(folder, entry.Name()))
+			if statErr != nil || entryInfo.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
+			itemPath := filepath.Join(folder, entry.Name())
+			item := map[string]any{
+				"name": entry.Name(),
+				"path": relativeStoragePath(root, itemPath),
+				"is_dir": entryInfo.IsDir(),
+				"size_bytes": int64(0),
+				"modified": entryInfo.ModTime().UTC().Format(time.RFC3339),
+			}
+			if !entryInfo.IsDir() && entryInfo.Mode().IsRegular() {
+				item["size_bytes"] = entryInfo.Size()
+			} else if !entryInfo.IsDir() {
+				continue
+			}
+			items = append(items, item)
+		}
+		writeJSON(w, 200, map[string]any{
+			"items": items,
+			"count": len(items),
+			"path": relativeStoragePath(root, folder),
+			"storage_scope": "private-user",
+		})
+
 	case http.MethodPut:
-		name, err := safeName(r.URL.Query().Get("name"))
-		if err != nil {
-			writeJSON(w, 400, apiError{Error: "invalid file name"})
+		rel := r.URL.Query().Get("path")
+		target, err := safeRelativePath(root, rel)
+		if err != nil || target == root || strings.TrimSpace(rel) == "" {
+			writeJSON(w, 400, apiError{Error: "choose a valid file name and folder"})
 			return
 		}
-		if r.ContentLength > 50*1024*1024 {
-			writeJSON(w, 413, apiError{Error: "maximum test upload size is 50 MB"})
+		if r.ContentLength > 100*1024*1024 {
+			writeJSON(w, 413, apiError{Error: "maximum upload size is 100 MB"})
 			return
 		}
-		dst := filepath.Join(dataDir, name)
-		tmp, err := os.CreateTemp(dataDir, ".upload-*")
+		parent := filepath.Dir(target)
+		parentInfo, statErr := os.Stat(parent)
+		if statErr != nil || !parentInfo.IsDir() {
+			writeJSON(w, 404, apiError{Error: "destination folder not found"})
+			return
+		}
+		if _, statErr := os.Lstat(target); statErr == nil {
+			writeJSON(w, 409, apiError{Error: "a file or folder with that name already exists"})
+			return
+		} else if !os.IsNotExist(statErr) {
+			writeJSON(w, 500, apiError{Error: "could not check destination"})
+			return
+		}
+		tmp, err := os.CreateTemp(parent, ".upload-*")
 		if err != nil {
 			writeJSON(w, 500, apiError{Error: "could not create temporary upload"})
 			return
 		}
 		defer os.Remove(tmp.Name())
-		if _, err = io.Copy(tmp, http.MaxBytesReader(w, r.Body, 50*1024*1024)); err != nil {
+		written, copyErr := io.Copy(tmp, http.MaxBytesReader(w, r.Body, 100*1024*1024))
+		if copyErr != nil {
 			_ = tmp.Close()
-			writeJSON(w, 413, apiError{Error: "upload failed or exceeded 50 MB"})
+			writeJSON(w, 413, apiError{Error: "upload failed or exceeded 100 MB"})
 			return
 		}
 		if err = tmp.Close(); err != nil {
 			writeJSON(w, 500, apiError{Error: "could not finish upload"})
 			return
 		}
-		if err = os.Rename(tmp.Name(), dst); err != nil {
-			writeJSON(w, 500, apiError{Error: "could not save file"})
+		if err = os.Rename(tmp.Name(), target); err != nil {
+			writeJSON(w, 500, apiError{Error: "could not save uploaded file"})
 			return
 		}
-		log.Printf("file uploaded: %s", name)
-		writeJSON(w, 201, map[string]any{"saved": true, "name": name})
+		log.Printf("file uploaded by user: path=%s bytes=%d", relativeStoragePath(root, target), written)
+		writeJSON(w, 201, map[string]any{"saved": true, "path": relativeStoragePath(root, target), "size_bytes": written})
+
 	default:
 		w.Header().Set("Allow", "GET, PUT")
 		writeJSON(w, 405, apiError{Error: "method not allowed"})
 	}
 }
+
 func fileHandler(w http.ResponseWriter, r *http.Request) {
-	name, err := safeName(strings.TrimPrefix(r.URL.Path, "/api/v1/files/"))
+	root, err := requestFileRoot(r)
 	if err != nil {
-		writeJSON(w, 400, apiError{Error: "invalid file name"})
+		writeJSON(w, 401, apiError{Error: "authentication required"})
 		return
 	}
-	path := filepath.Join(dataDir, name)
+	rel := r.URL.Query().Get("path")
+	if rel == "" {
+		rel = strings.TrimPrefix(r.URL.Path, "/api/v1/files/")
+	}
+	target, err := safeRelativePath(root, rel)
+	if err != nil || target == root {
+		writeJSON(w, 400, apiError{Error: "invalid file path"})
+		return
+	}
+	info, statErr := os.Lstat(target)
+	if statErr != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if info.Mode()&os.ModeSymlink != 0 || info.IsDir() || !info.Mode().IsRegular() {
+		writeJSON(w, 400, apiError{Error: "path is not a regular file"})
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
-		f, err := os.Open(path)
+		f, err := os.Open(target)
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
 		defer f.Close()
-		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-		http.ServeContent(w, r, name, time.Time{}, f)
+		name := filepath.Base(target)
+		disposition, _ := mime.FormatMediaType("attachment", map[string]string{"filename": name})
+		w.Header().Set("Content-Disposition", disposition)
+		http.ServeContent(w, r, name, info.ModTime(), f)
 	case http.MethodDelete:
-		if err := os.Remove(path); err != nil {
-			if os.IsNotExist(err) {
-				http.NotFound(w, r)
+		if err := os.Remove(target); err != nil {
+			writeJSON(w, 500, apiError{Error: "could not delete file"})
+			return
+		}
+		log.Printf("file deleted by user: path=%s", relativeStoragePath(root, target))
+		writeJSON(w, 200, map[string]any{"deleted": true, "path": relativeStoragePath(root, target)})
+	default:
+		w.Header().Set("Allow", "GET, DELETE")
+		writeJSON(w, 405, apiError{Error: "method not allowed"})
+	}
+}
+
+func foldersHandler(w http.ResponseWriter, r *http.Request) {
+	root, err := requestFileRoot(r)
+	if err != nil {
+		writeJSON(w, 401, apiError{Error: "authentication required"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPost:
+		var request struct {
+			Path string `json:"path"`
+		}
+		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&request) != nil {
+			writeJSON(w, 400, apiError{Error: "invalid folder request"})
+			return
+		}
+		target, err := safeRelativePath(root, request.Path)
+		if err != nil || target == root {
+			writeJSON(w, 400, apiError{Error: "enter a valid folder name"})
+			return
+		}
+		parentInfo, statErr := os.Stat(filepath.Dir(target))
+		if statErr != nil || !parentInfo.IsDir() {
+			writeJSON(w, 404, apiError{Error: "parent folder not found"})
+			return
+		}
+		if err := os.Mkdir(target, 0700); err != nil {
+			if os.IsExist(err) {
+				writeJSON(w, 409, apiError{Error: "a file or folder with that name already exists"})
 			} else {
-				writeJSON(w, 500, apiError{Error: "delete failed"})
+				writeJSON(w, 500, apiError{Error: "could not create folder"})
 			}
 			return
 		}
-		log.Printf("file deleted: %s", name)
-		writeJSON(w, 200, map[string]any{"deleted": true, "name": name})
+		writeJSON(w, 201, map[string]any{"created": true, "path": relativeStoragePath(root, target)})
+
+	case http.MethodDelete:
+		target, err := safeRelativePath(root, r.URL.Query().Get("path"))
+		if err != nil || target == root {
+			writeJSON(w, 400, apiError{Error: "invalid folder path"})
+			return
+		}
+		info, statErr := os.Lstat(target)
+		if statErr != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			writeJSON(w, 404, apiError{Error: "folder not found"})
+			return
+		}
+		if err := os.Remove(target); err != nil {
+			writeJSON(w, 409, apiError{Error: "folder is not empty; delete its contents first"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"deleted": true, "path": relativeStoragePath(root, target)})
+
 	default:
-		w.Header().Set("Allow", "GET, DELETE")
+		w.Header().Set("Allow", "POST, DELETE")
 		writeJSON(w, 405, apiError{Error: "method not allowed"})
 	}
 }
@@ -218,6 +401,8 @@ func runServer() error {
 	})
 	mux.HandleFunc("/api/v1/files", filesHandler)
 	mux.HandleFunc("/api/v1/files/", fileHandler)
+	mux.HandleFunc("/api/v1/file", fileHandler)
+	mux.HandleFunc("/api/v1/folders", foldersHandler)
 
 	auth, err = newAuthStore(dataDir)
 	if err != nil {
@@ -228,6 +413,7 @@ func runServer() error {
 	protected.Handle("/api/v1/status", authMiddleware(mux))
 	protected.Handle("/api/v1/files", authMiddleware(mux))
 	protected.Handle("/api/v1/files/", authMiddleware(mux))
+	protected.Handle("/api/v1/folders", authMiddleware(mux))
 	protected.Handle("/api/v1/setup", mux)
 	protected.Handle("/api/v1/login", mux)
 	protected.Handle("/api/v1/me", mux)

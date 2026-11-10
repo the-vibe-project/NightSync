@@ -67,9 +67,9 @@ jobs:
         with:
           go-version: '1.23.x'
           cache: false
-      - name: Download Go modules
+      - name: Resolve Go dependencies and generate checksums
         working-directory: server
-        run: go mod download
+        run: go mod tidy
       - name: Build server
         shell: pwsh
         working-directory: server

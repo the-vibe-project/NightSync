@@ -128,31 +128,7 @@
                 <TextBlock Text="Important: main storage is active for file tests. Backup and sync destinations are saved and passed to the server, but automatic backup/sync jobs are not implemented yet. Do not expose this development server to the internet." Foreground="#FCD38D" TextWrapping="Wrap"/>
               </Border>
             </StackPanel>
-            <StackPanel x:Name="HostPanel" Visibility="Collapsed">
-              <TextBlock Text="This PC — NightSync Server" Foreground="White" FontSize="20" FontWeight="SemiBold"/>
-              <TextBlock Text="Choose the server executable and the folders NightSync should use. The server currently runs as a normal Windows process; Windows Service installation will come later." Foreground="#B7C4D8" TextWrapping="Wrap" Margin="0,5,0,14"/>
-              <TextBlock Text="Server executable (.exe)" Foreground="#DCE6F5"/>
-              <DockPanel Margin="0,5,0,10"><Button Content="Browse…" DockPanel.Dock="Right" Padding="12,6" Click="BrowseServerExe_Click"/><TextBox x:Name="ServerExePathBox" Height="32" Padding="7" Margin="0,0,8,0"/></DockPanel>
-              <TextBlock Text="Main cloud storage destination" Foreground="#DCE6F5"/>
-              <DockPanel Margin="0,5,0,10"><Button Content="Choose folder…" DockPanel.Dock="Right" Padding="12,6" Click="BrowseStorage_Click"/><TextBox x:Name="StoragePathBox" Height="32" Padding="7" Margin="0,0,8,0"/></DockPanel>
-              <TextBlock Text="Backup destination (reserved for backup jobs)" Foreground="#DCE6F5"/>
-              <DockPanel Margin="0,5,0,10"><Button Content="Choose folder…" DockPanel.Dock="Right" Padding="12,6" Click="BrowseBackup_Click"/><TextBox x:Name="BackupPathBox" Height="32" Padding="7" Margin="0,0,8,0"/></DockPanel>
-              <TextBlock Text="Sync destination (reserved for sync jobs)" Foreground="#DCE6F5"/>
-              <DockPanel Margin="0,5,0,10"><Button Content="Choose folder…" DockPanel.Dock="Right" Padding="12,6" Click="BrowseSync_Click"/><TextBox x:Name="SyncPathBox" Height="32" Padding="7" Margin="0,0,8,0"/></DockPanel>
-              <CheckBox x:Name="AutoStartCheck" Content="Start NightSync Server automatically when I sign in to Windows" Foreground="#DCE6F5" Margin="0,5,0,12"/>
-              <WrapPanel Margin="0,0,0,12">
-                <Button Content="Save setup" Padding="13,8" Margin="0,0,8,0" Click="SaveHostSetup_Click"/>
-                <Button Content="Start server" Padding="13,8" Margin="0,0,8,0" Click="StartServer_Click"/>
-                <Button Content="Stop server" Padding="13,8" Margin="0,0,8,0" Click="StopServer_Click"/>
-                <Button Content="Restart server" Padding="13,8" Click="RestartServer_Click"/>
-              </WrapPanel>
-              <TextBlock x:Name="HostStatusText" Text="Server not checked." Foreground="#93C5FD" FontSize="16" FontWeight="SemiBold" Margin="0,4,0,6"/>
-              <TextBlock x:Name="HostDetailsText" Text="Save the setup before starting. This build is localhost-only." Foreground="#B7C4D8" TextWrapping="Wrap"/>
-              <Border Background="#332B1B" CornerRadius="7" Padding="10" Margin="0,14,0,0">
-                <TextBlock Text="Important: main storage is active for file tests. Backup and sync destinations are saved, but automatic backup/sync jobs are not active in this build. Do not expose this development server to the internet." Foreground="#FCD38D" TextWrapping="Wrap"/>
-              </Border>
-            </StackPanel>
-            <StackPanel x:Name="PlaceholderPanel" Visibility="Collapsed">
+                        <StackPanel x:Name="PlaceholderPanel" Visibility="Collapsed">
               <Border Background="#332B1B" CornerRadius="7" Padding="10"><TextBlock Text="Preview screen — server integration is not yet enabled." Foreground="#FCD38D" TextWrapping="Wrap"/></Border>
               <TextBlock x:Name="PlaceholderDetails" Foreground="#DCE6F5" Margin="0,14,0,0" TextWrapping="Wrap"/>
             </StackPanel>

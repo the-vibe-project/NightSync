@@ -4,6 +4,10 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
+## v0.7.1 build-fix package
+- Removed duplicate server setup panel declarations that caused WPF CS0102 build errors.
+- Windows server CI now runs `go mod tidy` before compiling, generating required module checksums (`go.sum`).
+
 ## v0.7 development features
 - Windows desktop sign-in and first-administrator setup.
 - Server control screen: choose server executable, main storage, backup destination and sync destination.

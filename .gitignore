@@ -1,23 +1,14 @@
-# Android / Gradle
 .gradle/
 **/build/
-local.properties
-*.jks
-*.keystore
-
-# .NET
-bin/
-obj/
+**/bin/
+**/obj/
 .vs/
+.idea/
+local.properties
 *.user
 *.suo
-
-# Go
 *.exe
 *.test
-/vendor/
-
-# Secrets and local data
 .env
 .env.*
 secrets/

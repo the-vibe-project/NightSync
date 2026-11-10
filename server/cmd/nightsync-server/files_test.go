@@ -280,3 +280,25 @@ func TestFileManagerAcceptsChunkedUploadWithoutContentLength(t *testing.T) {
 		t.Fatalf("chunked upload payload mismatch; status=%d body=%q", download.Code, download.Body.String())
 	}
 }
+
+
+func TestRequestFileRootRejectsUserFolderSymlink(t *testing.T) {
+	setupFileAPITest(t)
+	usersRoot := filepath.Join(dataDir, "users")
+	if err := os.Mkdir(usersRoot, 0700); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	outsideTarget := filepath.Join(outside, "must-not-be-created")
+	if err := os.Symlink(outsideTarget, filepath.Join(usersRoot, "alice")); err != nil {
+		t.Skipf("symlink creation unavailable: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/files", nil)
+	request.Header.Set("Authorization", "Bearer alice-token")
+	if root, err := requestFileRoot(request); err == nil || root != "" {
+		t.Fatalf("expected symlinked user folder to be rejected, got root=%q err=%v", root, err)
+	}
+	if _, err := os.Lstat(outsideTarget); !os.IsNotExist(err) {
+		t.Fatalf("server created a directory through the user-folder symlink: stat err=%v", err)
+	}
+}

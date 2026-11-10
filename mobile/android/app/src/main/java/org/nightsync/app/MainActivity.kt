@@ -352,6 +352,7 @@ fun NightSyncAuthApp(
                         Column {
                             Text("NIGHTSYNC", style = MaterialTheme.typography.labelMedium, color = NightCyan, fontWeight = FontWeight.Bold)
                             Text(if (token == null) "Your private cloud" else "Welcome, $username", style = MaterialTheme.typography.titleMedium, color = NightText)
+                            Text("BY THE VIBE PROJECT", style = MaterialTheme.typography.labelSmall, color = NightMuted)
                         }
                     },
                     actions = {

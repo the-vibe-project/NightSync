@@ -103,7 +103,11 @@ func (a *authStore) create(username, password, role string, must bool) error {
 		return errors.New("username already exists")
 	}
 	a.users[k] = userRecord{Username: username, Role: role, PasswordHash: string(h), MustChangePassword: must, CreatedAt: time.Now().UTC()}
-	return a.saveLocked()
+	if err := a.saveLocked(); err != nil {
+		delete(a.users, k)
+		return err
+	}
+	return nil
 }
 func (a *authStore) createFirstAdmin(username, password string) error {
 	username = strings.TrimSpace(username)
@@ -196,10 +200,12 @@ func (a *authStore) change(username, oldp, newp string) error {
 	if !ok || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(oldp)) != nil {
 		return errors.New("current password is incorrect")
 	}
+	original := u
 	u.PasswordHash = string(h)
 	u.MustChangePassword = false
 	a.users[k] = u
 	if e = a.saveLocked(); e != nil {
+		a.users[k] = original
 		return e
 	}
 	for t, s := range a.sessions {
@@ -225,10 +231,12 @@ func (a *authStore) reset(username string) (string, error) {
 	if !ok {
 		return "", errors.New("user not found")
 	}
+	original := u
 	u.PasswordHash = string(h)
 	u.MustChangePassword = true
 	a.users[k] = u
 	if e = a.saveLocked(); e != nil {
+		a.users[k] = original
 		return "", e
 	}
 	for t, s := range a.sessions {

@@ -103,9 +103,22 @@ func requestFileRoot(r *http.Request) (string, error) {
 	if !ok {
 		return "", errors.New("authentication required")
 	}
-	root := filepath.Join(dataDir, "users", strings.ToLower(user.Username))
+	usersRoot := filepath.Join(dataDir, "users")
+	if err := os.MkdirAll(usersRoot, 0700); err != nil {
+		return "", fmt.Errorf("cannot prepare private storage: %w", err)
+	}
+	usersInfo, err := os.Lstat(usersRoot)
+	if err != nil || !usersInfo.IsDir() || usersInfo.Mode()&os.ModeSymlink != 0 {
+		return "", errors.New("private storage root is not a safe directory")
+	}
+
+	root := filepath.Join(usersRoot, strings.ToLower(user.Username))
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return "", fmt.Errorf("cannot prepare private storage: %w", err)
+	}
+	userInfo, err := os.Lstat(root)
+	if err != nil || !userInfo.IsDir() || userInfo.Mode()&os.ModeSymlink != 0 {
+		return "", errors.New("user storage root is not a safe directory")
 	}
 	return root, nil
 }

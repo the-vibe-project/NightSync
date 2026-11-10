@@ -42,6 +42,9 @@ func newAuthStore(dir string) (*authStore, error) {
 		if e = json.Unmarshal(b, &a.users); e != nil {
 			return nil, e
 		}
+		if a.users == nil {
+			a.users = map[string]userRecord{}
+		}
 	} else if !os.IsNotExist(e) {
 		return nil, e
 	}

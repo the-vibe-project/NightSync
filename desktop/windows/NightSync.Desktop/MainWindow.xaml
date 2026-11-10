@@ -101,6 +101,7 @@
         <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
           <TextBlock Text="NIGHTSYNC" Foreground="#69E5FF" FontSize="10" FontWeight="Bold"/>
           <TextBlock Text="Your private cloud" Foreground="#ECF7FF" FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0"/>
+          <TextBlock Text="BY THE VIBE PROJECT" Foreground="#91A7C1" FontSize="8" FontWeight="Bold" Margin="0,3,0,0"/>
         </StackPanel>
       </StackPanel>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

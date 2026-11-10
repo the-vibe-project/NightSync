@@ -109,28 +109,28 @@ public partial class MainWindow : Window
         if (argument.Length > 0 && !argument.Any(char.IsWhiteSpace) && !argument.Contains('"'))
             return argument;
 
-        var result = new StringBuilder("\\\"");
+        var result = new StringBuilder("\"");
         var backslashes = 0;
         foreach (var character in argument)
         {
-            if (character == '\\\\')
+            if (character == '\\')
             {
                 backslashes++;
             }
             else if (character == '"')
             {
-                result.Append('\\\\', backslashes * 2 + 1);
+                result.Append('\\', backslashes * 2 + 1);
                 result.Append('"');
                 backslashes = 0;
             }
             else
             {
-                result.Append('\\\\', backslashes);
+                result.Append('\\', backslashes);
                 result.Append(character);
                 backslashes = 0;
             }
         }
-        result.Append('\\\\', backslashes * 2);
+        result.Append('\\', backslashes * 2);
         result.Append('"');
         return result.ToString();
     }

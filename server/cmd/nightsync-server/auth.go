@@ -102,6 +102,47 @@ func (a *authStore) create(username, password, role string, must bool) error {
 	a.users[k] = userRecord{Username: username, Role: role, PasswordHash: string(h), MustChangePassword: must, CreatedAt: time.Now().UTC()}
 	return a.saveLocked()
 }
+func (a *authStore) createFirstAdmin(username, password string) error {
+	username = strings.TrimSpace(username)
+	if !validUsername(username) {
+		return errors.New("username must be 3-32 characters")
+	}
+	if !strongPassword(password) {
+		return errors.New("password must be at least 12 characters")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(a.users) != 0 {
+		return errors.New("setup already completed")
+	}
+	key := strings.ToLower(username)
+	a.users[key] = userRecord{
+		Username: username,
+		Role: "admin",
+		PasswordHash: string(hash),
+		MustChangePassword: false,
+		CreatedAt: time.Now().UTC(),
+	}
+	return a.saveLocked()
+}
+
+func (a *authStore) logout(token string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	session, ok := a.sessions[token]
+	if !ok || time.Now().After(session.ExpiresAt) {
+		delete(a.sessions, token)
+		return false
+	}
+	delete(a.sessions, token)
+	return true
+}
+
 func (a *authStore) login(username, password string) (userRecord, string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -195,10 +236,6 @@ func authRoutes(mux *http.ServeMux) {
 		if !method(w, r, http.MethodPost) {
 			return
 		}
-		if auth.count() != 0 {
-			writeJSON(w, 409, apiError{Error: "setup already completed"})
-			return
-		}
 		var q struct {
 			Username string `json:"username"`
 			Password string `json:"password"`
@@ -207,8 +244,12 @@ func authRoutes(mux *http.ServeMux) {
 			writeJSON(w, 400, apiError{Error: "invalid request"})
 			return
 		}
-		if e := auth.create(q.Username, q.Password, "admin", false); e != nil {
-			writeJSON(w, 400, apiError{Error: e.Error()})
+		if e := auth.createFirstAdmin(q.Username, q.Password); e != nil {
+			if e.Error() == "setup already completed" {
+				writeJSON(w, 409, apiError{Error: e.Error()})
+			} else {
+				writeJSON(w, 400, apiError{Error: e.Error()})
+			}
 			return
 		}
 		writeJSON(w, 201, map[string]any{"created": true, "role": "admin"})
@@ -231,6 +272,22 @@ func authRoutes(mux *http.ServeMux) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"token": t, "username": u.Username, "role": u.Role, "must_change_password": u.MustChangePassword})
+	})
+	mux.HandleFunc("/api/v1/logout", func(w http.ResponseWriter, r *http.Request) {
+		if !method(w, r, http.MethodPost) {
+			return
+		}
+		header := strings.TrimSpace(r.Header.Get("Authorization"))
+		if !strings.HasPrefix(header, "Bearer ") {
+			writeJSON(w, 401, apiError{Error: "authentication required"})
+			return
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+		if !auth.logout(token) {
+			writeJSON(w, 401, apiError{Error: "session expired"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"logged_out": true})
 	})
 	mux.HandleFunc("/api/v1/me", func(w http.ResponseWriter, r *http.Request) {
 		if !method(w, r, http.MethodGet) {

@@ -2,22 +2,30 @@
 
 ## Applications
 
-1. **Server** — independent background process; Windows first, Linux later.
-2. **Desktop** — WPF graphical client and administration console.
-3. **Mobile** — Android first, iOS later.
-4. **Web** — browser interface, added after the API and security model stabilise.
+1. **Server** — Go server engine, currently Windows-first and capable of running as a Windows Service.
+2. **Server UI** — WPF dashboard for server status, storage configuration, service install/removal, and logs.
+3. **Desktop** — WPF sign-in and administration client.
+4. **Mobile** — Android Compose client with sign-in and local sync-schedule preferences.
+5. **Web** — not started; planned after API security and remote connectivity are ready.
 
-## Server modules (planned)
+## Implemented server foundation
 
-- API gateway and authentication
-- Authorization and role management
-- Storage abstraction
-- File/object engine
-- Sync and conflict engine
-- Backup and restore engine
-- Media indexing and streaming
-- Notifications and diagnostics
-- Windows platform integration (Storage Spaces, service lifecycle, SMB)
+- Local account setup, sign-in, password change, and role information.
+- Local file listing, upload, download, and delete endpoints.
+- Health and authenticated status endpoints.
+- Main storage directory selection.
+- Windows Service Control Manager integration for boot-time startup.
+- Windows service restart-on-failure policy configured by the Server UI.
+
+## Planned server modules
+
+- Secure remote API and device pairing.
+- File sync engine, conflict handling, and offline queue.
+- Scheduled backup and restore.
+- Per-user file browsing and shared folders.
+- Media indexing and streaming.
+- Notifications and diagnostics.
+- SMB and optional storage-pool integration.
 
 ## Storage design
 
@@ -32,12 +40,12 @@ RAID/Storage Spaces redundancy is not a backup.
 
 ## Security principles
 
-- Bind development API to loopback only.
+- Keep the development API bound to loopback.
 - Do not expose the scaffold to LAN or internet.
-- TLS, authentication, authorization, rate limiting, audit logs and recovery must be implemented and reviewed before remote access.
+- TLS, remote authentication, authorization, rate limiting, audit logs and recovery must be implemented and reviewed before remote access.
 - Do not store plaintext passwords.
 - Do not claim end-to-end encryption if the server owner can recover and read user content.
 
-## Current milestone
+## Current limits
 
-This repository is a clean starter scaffold. The health endpoint is the only server API. No real file storage or account functionality exists yet.
+The server currently listens on `127.0.0.1:8787`, has in-memory sessions, and is not production-ready or security-reviewed. The Android daily schedule stores one, two, or three preferred times locally; it does not run transfers. Backup and two-way sync jobs are not implemented.

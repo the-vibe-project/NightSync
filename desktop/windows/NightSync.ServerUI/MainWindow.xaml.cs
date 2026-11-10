@@ -3,7 +3,6 @@ using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -27,7 +26,7 @@ public partial class MainWindow : Window
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValue = "NightSyncServer";
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
-    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(5) };
     private Config _config = new();
     private Process? _ownedServer;
     private bool _loading;
@@ -80,34 +79,24 @@ public partial class MainWindow : Window
         using var key = Registry.CurrentUser.OpenSubKey(RunKey, true) ?? Registry.CurrentUser.CreateSubKey(RunKey, true);
         if (key is null) throw new InvalidOperationException("Cannot configure Windows startup.");
         if (_config.AutoStart && File.Exists(_config.ServerExe))
-        {
-            var args = BuildArguments();
-            key.SetValue(RunValue, $"\"{_config.ServerExe}\" {args}");
-        }
+            key.SetValue(RunValue, $"\"{_config.ServerExe}\" {BuildArguments()}");
         else key.DeleteValue(RunValue, false);
     }
 
-    private string BuildArguments()
-    {
-        var args = $"--storage \"{_config.MainPath}\" --backup \"{_config.BackupPath}\" --sync \"{_config.SyncPath}\" --log-file \"{LogPath}\"";
-        return args;
-    }
+    private string BuildArguments() =>
+        $"--storage \"{_config.MainPath}\" --backup \"{_config.BackupPath}\" --sync \"{_config.SyncPath}\" --log-file \"{LogPath}\"";
 
     private async Task<bool> IsOnlineAsync()
     {
-        try
-        {
-            using var response = await _http.GetAsync("http://127.0.0.1:8787/health");
-            return response.IsSuccessStatusCode;
-        }
+        try { using var response = await _http.GetAsync("http://127.0.0.1:8787/health"); return response.IsSuccessStatusCode; }
         catch { return false; }
     }
 
     private async Task RefreshStatusAsync()
     {
         var online = await IsOnlineAsync();
-        StatusText.Text = online ? "Online · localhost" : "Offline";
-        StatusDot.Fill = new SolidColorBrush(online ? Color.FromRgb(34, 197, 94) : Color.FromRgb(100, 116, 139));
+        StatusText.Text = online ? "Online" : "Offline";
+        StatusDot.Fill = new SolidColorBrush(online ? Color.FromRgb(54, 190, 135) : Color.FromRgb(135, 145, 160));
         if (online)
         {
             try
@@ -118,15 +107,15 @@ public partial class MainWindow : Window
                 VersionText.Text = root.TryGetProperty("version", out var v) ? v.GetString() ?? "—" : "—";
                 var uptime = root.TryGetProperty("uptime_seconds", out var u) ? u.GetInt64() : 0;
                 UptimeText.Text = TimeSpan.FromSeconds(uptime).ToString(@"d\.hh\:mm\:ss");
-                HealthText.Text = "Health endpoint responding: http://127.0.0.1:8787/health\nServer process is reachable on this PC.";
+                HealthText.Text = "NightSync is running on this PC. Remote access and scheduled file transfers are not available in this development build.";
             }
-            catch { HealthText.Text = "Server responded, but its health details could not be read."; }
+            catch { HealthText.Text = "Server responded, but its status details could not be read."; }
         }
         else
         {
             VersionText.Text = "—";
             UptimeText.Text = "—";
-            HealthText.Text = "No server is responding on 127.0.0.1:8787. Select the server executable and press Start.";
+            HealthText.Text = "NightSync is not running. Choose the server application and select Start.";
         }
         UpdateDriveStats();
         LoadLog();
@@ -158,22 +147,21 @@ public partial class MainWindow : Window
     private async Task StartServerAsync()
     {
         SaveConfig();
-        if (await IsOnlineAsync()) { ControlMessage.Text = "A NightSync server is already responding on port 8787."; return; }
-        if (!File.Exists(_config.ServerExe)) { ControlMessage.Text = "Choose a valid NightSync-Server-windows-x64.exe first."; return; }
+        if (await IsOnlineAsync()) { ControlMessage.Text = "NightSync is already running."; return; }
+        if (!File.Exists(_config.ServerExe)) { ControlMessage.Text = "Choose a valid NightSync server application first."; return; }
         var psi = new ProcessStartInfo(_config.ServerExe, BuildArguments())
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
+            UseShellExecute = false, CreateNoWindow = true,
             WorkingDirectory = Path.GetDirectoryName(_config.ServerExe) ?? AppContext.BaseDirectory
         };
         _ownedServer = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        if (!_ownedServer.Start()) { ControlMessage.Text = "Windows could not start the server process."; return; }
-        ControlMessage.Text = "Start command sent. Waiting for the health endpoint…";
+        if (!_ownedServer.Start()) { ControlMessage.Text = "Windows could not start NightSync."; return; }
+        ControlMessage.Text = "Starting NightSync…";
         for (var i = 0; i < 20; i++)
         {
             await Task.Delay(500);
-            if (await IsOnlineAsync()) { ControlMessage.Text = "NightSync Server is online."; await RefreshStatusAsync(); return; }
-            if (_ownedServer.HasExited) { ControlMessage.Text = $"Server exited with code {_ownedServer.ExitCode}. Check the log."; break; }
+            if (await IsOnlineAsync()) { ControlMessage.Text = "NightSync is ready."; await RefreshStatusAsync(); return; }
+            if (_ownedServer.HasExited) { ControlMessage.Text = $"NightSync stopped unexpectedly (code {_ownedServer.ExitCode}). Check the activity log."; break; }
         }
         await RefreshStatusAsync();
     }
@@ -182,61 +170,56 @@ public partial class MainWindow : Window
     {
         if (_ownedServer is null || _ownedServer.HasExited)
         {
-            ControlMessage.Text = "This dashboard did not start the running server. Close its original console window to stop it.";
+            ControlMessage.Text = "This dashboard did not start the running process. Use the original launch method to stop it.";
             return;
         }
         try
         {
             _ownedServer.Kill(entireProcessTree: true);
             await _ownedServer.WaitForExitAsync();
-            ControlMessage.Text = "NightSync Server stopped.";
+            ControlMessage.Text = "NightSync has stopped.";
         }
-        catch (Exception ex) { ControlMessage.Text = "Could not stop server: " + ex.Message; }
+        catch (Exception ex) { ControlMessage.Text = "Could not stop NightSync: " + ex.Message; }
         await RefreshStatusAsync();
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e) => await StartServerAsync();
     private async void Stop_Click(object sender, RoutedEventArgs e) => await StopServerAsync();
-    private async void Restart_Click(object sender, RoutedEventArgs e)
-    {
-        await StopServerAsync();
-        await Task.Delay(700);
-        await StartServerAsync();
-    }
+    private async void Restart_Click(object sender, RoutedEventArgs e) { await StopServerAsync(); await Task.Delay(700); await StartServerAsync(); }
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshStatusAsync();
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        try { SaveConfig(); StorageMessage.Text = "Configuration saved. Main storage is used by the current server. Backup and sync paths are configured only."; }
-        catch (Exception ex) { StorageMessage.Text = "Could not save: " + ex.Message; }
+        try { SaveConfig(); StorageMessage.Text = "Your storage locations have been saved. Backup and sync are not active yet."; }
+        catch (Exception ex) { StorageMessage.Text = "Could not save settings: " + ex.Message; }
     }
 
     private void AutoStart_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
         try { _config.AutoStart = AutoStartCheck.IsChecked == true; SaveConfig(); }
-        catch (Exception ex) { ControlMessage.Text = "Auto-start setting failed: " + ex.Message; }
+        catch (Exception ex) { ControlMessage.Text = "Startup setting could not be saved: " + ex.Message; }
     }
 
     private void BrowseExe_Click(object sender, RoutedEventArgs e)
     {
-        var d = new OpenFileDialog { Filter = "NightSync server executable|NightSync-Server-windows-x64.exe;*.exe|All files|*.*" };
+        var d = new OpenFileDialog { Filter = "NightSync server application|NightSync-Server-windows-x64.exe;*.exe|All files|*.*" };
         if (d.ShowDialog() == true) ExeBox.Text = d.FileName;
     }
     private void BrowseMain_Click(object sender, RoutedEventArgs e) => ChooseFolder(MainBox);
     private void BrowseBackup_Click(object sender, RoutedEventArgs e) => ChooseFolder(BackupBox);
     private void BrowseSync_Click(object sender, RoutedEventArgs e) => ChooseFolder(SyncBox);
 
-    private static void ChooseFolder(TextBox target)
+    private static void ChooseFolder(System.Windows.Controls.TextBox target)
     {
-        var dialog = new OpenFolderDialog { Title = "Choose NightSync folder", Multiselect = false };
+        var dialog = new OpenFolderDialog { Title = "Choose a NightSync folder", Multiselect = false };
         if (dialog.ShowDialog() == true) target.Text = dialog.FolderName;
     }
 
     private void OpenLog_Click(object sender, RoutedEventArgs e)
     {
         Directory.CreateDirectory(_root);
-        if (!File.Exists(LogPath)) File.WriteAllText(LogPath, "NightSync Server log will appear here.\n");
+        if (!File.Exists(LogPath)) File.WriteAllText(LogPath, "NightSync activity will appear here.\n");
         Process.Start(new ProcessStartInfo(LogPath) { UseShellExecute = true });
     }
 
@@ -244,11 +227,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (!File.Exists(LogPath)) { LogBox.Text = "No log file yet."; return; }
-            var lines = File.ReadAllLines(LogPath);
-            LogBox.Text = string.Join(Environment.NewLine, lines.TakeLast(250));
+            if (!File.Exists(LogPath)) { LogBox.Text = "No activity yet."; return; }
+            LogBox.Text = string.Join(Environment.NewLine, File.ReadAllLines(LogPath).TakeLast(180));
             LogBox.ScrollToEnd();
         }
-        catch { LogBox.Text = "Unable to read the server log."; }
+        catch { LogBox.Text = "Activity log is unavailable."; }
     }
 }

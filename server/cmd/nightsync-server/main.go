@@ -13,7 +13,7 @@ import (
     "time"
 )
 
-const version = "0.4.0"
+const version = "0.6.0"
 var startedAt = time.Now()
 var dataDir string
 
@@ -47,7 +47,7 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
         if err != nil { writeJSON(w, 500, apiError{Error:"could not read storage directory"}); return }
         files := make([]map[string]any, 0, len(entries))
         for _, e := range entries {
-            if e.IsDir() { continue }
+            if e.IsDir() || strings.EqualFold(e.Name(), "users.json") || strings.HasPrefix(e.Name(), ".upload-") { continue }
             info, err := e.Info(); if err != nil { continue }
             files = append(files, map[string]any{
                 "name": e.Name(), "size_bytes": info.Size(), "modified": info.ModTime().UTC().Format(time.RFC3339),
@@ -134,12 +134,28 @@ func main() {
     mux.HandleFunc("/api/v1/files", filesHandler)
     mux.HandleFunc("/api/v1/files/", fileHandler)
 
+    auth, err = newAuthStore(dataDir)
+    if err != nil { log.Fatalf("cannot load users: %v", err) }
+    authRoutes(mux)
+    protected := http.NewServeMux()
+    protected.Handle("/api/v1/status", authMiddleware(mux))
+    protected.Handle("/api/v1/files", authMiddleware(mux))
+    protected.Handle("/api/v1/files/", authMiddleware(mux))
+    protected.Handle("/api/v1/setup", mux)
+    protected.Handle("/api/v1/login", mux)
+    protected.Handle("/api/v1/me", mux)
+    protected.Handle("/api/v1/change-password", mux)
+    protected.Handle("/api/v1/admin/users", mux)
+    protected.Handle("/api/v1/admin/users/", mux)
+    protected.Handle("/health", mux)
+
     addr := "127.0.0.1:8787"
     log.Printf("NightSync Server %s starting",version)
     log.Printf("Storage directory: %s",dataDir)
     log.Printf("Health: http://%s/health",addr)
     log.Printf("Status: http://%s/api/v1/status",addr)
     log.Printf("Files:  http://%s/api/v1/files",addr)
-    log.Printf("WARNING: local development only; no authentication/TLS; loopback-only")
-    log.Fatal(http.ListenAndServe(addr,mux))
+    log.Printf("First-time setup: POST http://%s/api/v1/setup (only before first account)", addr)
+    log.Printf("WARNING: localhost-only development build; no TLS; do not expose to LAN/internet")
+    log.Fatal(http.ListenAndServe(addr,protected))
 }

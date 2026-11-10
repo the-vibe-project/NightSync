@@ -1,0 +1,24 @@
+<Window x:Class="NightSync.Desktop.LoginWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Sign in to NightSync" Height="590" Width="470" ResizeMode="NoResize"
+ WindowStartupLocation="CenterScreen" Background="#0B1220">
+ <Grid Margin="30">
+  <StackPanel VerticalAlignment="Center">
+   <TextBlock Text="NightSync" Foreground="White" FontSize="32" FontWeight="Bold"/>
+   <TextBlock Text="Your private cloud. Your storage. Your control." Foreground="#AAB7CC" Margin="0,5,0,24"/>
+   <TextBlock Text="Server address" Foreground="#DCE6F5"/>
+   <TextBox x:Name="AddressBox" Text="http://127.0.0.1:8787" Height="34" Padding="8" Margin="0,5,0,12"/>
+   <TextBlock Text="User ID" Foreground="#DCE6F5"/>
+   <TextBox x:Name="UsernameBox" Height="34" Padding="8" Margin="0,5,0,12"/>
+   <TextBlock Text="Password" Foreground="#DCE6F5"/>
+   <PasswordBox x:Name="PasswordBox" Height="34" Padding="8" Margin="0,5,0,14"/>
+   <Button Content="Sign in" Height="38" Click="SignIn_Click"/>
+   <Separator Margin="0,18,0,14"/>
+   <TextBlock Text="First time setting up this server?" Foreground="#AAB7CC"/>
+   <Button Content="Create first administrator" Height="34" Margin="0,8,0,0" Click="Setup_Click"/>
+   <TextBlock x:Name="MessageText" Foreground="#FCD38D" TextWrapping="Wrap" Margin="0,14,0,0"/>
+   <TextBlock Text="Local development login. Remote access is not enabled." Foreground="#71829B" FontSize="10" Margin="0,18,0,0"/>
+  </StackPanel>
+ </Grid>
+</Window>

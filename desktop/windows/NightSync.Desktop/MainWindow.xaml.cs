@@ -19,9 +19,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _serverAddress = AppSession.ServerAddress;
+        _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AppSession.Token);
+        RoleSelector.Visibility = Visibility.Collapsed;
         ServerProfiles.ItemsSource = _profiles;
         LoadProfiles();
         if (_profiles.Count == 0) ServerAddress.Text = _serverAddress;
+        Title = $"NightSync - {AppSession.Username} ({AppSession.Role})";
         ApplyRole();
     }
 
@@ -43,14 +47,14 @@ public partial class MainWindow : Window
         File.WriteAllText(_profilePath, JsonSerializer.Serialize(_profiles, new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    private bool IsAdminPreview => RoleSelector.SelectedIndex == 1;
+    private bool IsAdminPreview => AppSession.Role == "admin";
     private void ApplyRole()
     {
         if (AdminActionButton is null) return;
         AdminActionButton.Visibility = IsAdminPreview ? Visibility.Visible : Visibility.Collapsed;
         RoleNotice.Text = IsAdminPreview
-            ? "Admin preview only. This is not server-enforced authorization."
-            : "Member view: monitoring and file operations are available; admin controls are hidden.";
+            ? "Signed in as administrator. Server permissions are enforced by the API."
+            : "Signed in as member. Administrative actions are unavailable.";
     }
     private void RoleSelector_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyRole();
 

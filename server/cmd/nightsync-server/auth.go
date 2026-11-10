@@ -157,6 +157,12 @@ func (a *authStore) logout(token string) bool {
 func (a *authStore) login(username, password string) (userRecord, string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	now := time.Now()
+	for token, session := range a.sessions {
+		if !now.Before(session.ExpiresAt) {
+			delete(a.sessions, token)
+		}
+	}
 	u, ok := a.users[strings.ToLower(strings.TrimSpace(username))]
 	if !ok || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil {
 		return userRecord{}, "", errors.New("invalid username or password")

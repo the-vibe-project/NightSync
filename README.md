@@ -4,12 +4,22 @@ Free and open-source self-hosted NAS and personal cloud.
 
 **Status: early development prototype. Not production-ready or security-reviewed.**
 
-## v0.5
-- Windows desktop client connects to the local NightSync Server.
-- Live status: server version, uptime, process memory, runtime, goroutines and real storage volume capacity.
-- Server file browser: list, upload, download and delete test files.
-- Local HTTP is allowed only for loopback testing; remote server profiles require HTTPS.
-- Android app remains a UI/connection-test preview; live remote connection awaits secure LAN/TLS and authentication.
+## v0.7 development features
+- Windows desktop sign-in and first-administrator setup.
+- Server control screen: choose server executable, main storage, backup destination and sync destination.
+- Start, stop and restart the local NightSync Server from the Windows app.
+- Optional automatic server start when the current Windows user signs in.
+- Server log file at `%AppData%\\NightSync\\server.log`.
+- Server status includes live storage volume readings and configured backup/sync destination paths.
+- Server file test: list, upload, download and delete.
+- Server listens only on `127.0.0.1:8787` in this development build.
 
-## Safety and limitations
-Server has no authentication or TLS and listens only on 127.0.0.1:8787. Do not expose it to LAN or internet or store important/private files. Member/Admin role selector is only a UI preview and is not server-enforced. No encryption, backup, recycle bin, SMB, media streaming, sync or camera backup yet.
+## Important limitations
+- Backup and sync destinations can be selected and saved, but automatic backup and two-way sync jobs are not implemented yet.
+- Auto-start is a Windows user sign-in startup entry, not a Windows Service and not a pre-login boot service.
+- The server is localhost-only. Do not expose it to LAN or the internet.
+- Sessions are held in memory and are lost on server restart; sign in again after restarting.
+- Android currently has sign-in and password-change foundation screens; remote access from a phone is not enabled in this localhost-only server build.
+- No encryption-at-rest, recycle bin, SMB, media streaming, camera backup or production security review yet.
+
+See `docs/HOST-SETUP.md` and `docs/ACCOUNT-SETUP.md`.

@@ -1,4 +1,4 @@
-# NightSync v0.6 account setup
+# NightSync v0.7 account setup
 
 ## Start the Windows host
 1. Download and extract the GitHub Actions artifact `NightSync-Server-windows-x64`.
@@ -28,3 +28,5 @@ A signed-in user calls `POST /api/v1/change-password` with `current_password` an
 - Windows account-management UI is not finished; admin user creation/reset are currently API endpoints.
 - Sessions are in-memory and expire after 12 hours or server restart.
 - Before multi-device access, add TLS, rate limiting, logout/revocation, audit events, secure token storage, and security review.
+
+See [HOST-SETUP.md](HOST-SETUP.md) for Windows server start/stop/restart, auto-start and storage destination configuration.

@@ -1,161 +1,243 @@
 package main
 
 import (
-    "encoding/json"
-    "errors"
-    "io"
-    "log"
-    "net/http"
-    "os"
-    "path/filepath"
-    "runtime"
-    "strings"
-    "time"
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
 )
 
-const version = "0.6.0"
+const version = "0.7.0"
+
 var startedAt = time.Now()
 var dataDir string
+var backupDir string
+var syncDir string
+var shutdownRequested = make(chan struct{}, 1)
 
-type apiError struct { Error string `json:"error"` }
+type apiError struct {
+	Error string `json:"error"`
+}
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
-    w.Header().Set("Content-Type", "application/json")
-    w.Header().Set("Cache-Control", "no-store")
-    w.WriteHeader(code)
-    _ = json.NewEncoder(w).Encode(v)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
 }
 func method(w http.ResponseWriter, r *http.Request, allowed string) bool {
-    if r.Method != allowed {
-        w.Header().Set("Allow", allowed)
-        writeJSON(w, http.StatusMethodNotAllowed, apiError{Error:"method not allowed"})
-        return false
-    }
-    return true
+	if r.Method != allowed {
+		w.Header().Set("Allow", allowed)
+		writeJSON(w, http.StatusMethodNotAllowed, apiError{Error: "method not allowed"})
+		return false
+	}
+	return true
 }
 func safeName(name string) (string, error) {
-    name = strings.TrimSpace(name)
-    if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\:`) || strings.ContainsRune(name, 0) {
-        return "", errors.New("invalid file name; use a simple file name without folders")
-    }
-    return name, nil
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." || strings.EqualFold(name, "users.json") ||
+		strings.EqualFold(name, "users.json.tmp") || strings.ContainsAny(name, `/\:`) || strings.ContainsRune(name, 0) {
+		return "", errors.New("invalid file name")
+	}
+	return name, nil
 }
 func filesHandler(w http.ResponseWriter, r *http.Request) {
-    switch r.Method {
-    case http.MethodGet:
-        entries, err := os.ReadDir(dataDir)
-        if err != nil { writeJSON(w, 500, apiError{Error:"could not read storage directory"}); return }
-        files := make([]map[string]any, 0, len(entries))
-        for _, e := range entries {
-            if e.IsDir() || strings.EqualFold(e.Name(), "users.json") || strings.HasPrefix(e.Name(), ".upload-") { continue }
-            info, err := e.Info(); if err != nil { continue }
-            files = append(files, map[string]any{
-                "name": e.Name(), "size_bytes": info.Size(), "modified": info.ModTime().UTC().Format(time.RFC3339),
-            })
-        }
-        writeJSON(w, 200, map[string]any{"items":files, "count":len(files)})
-    case http.MethodPut:
-        name, err := safeName(r.URL.Query().Get("name"))
-        if err != nil { writeJSON(w, 400, apiError{Error:err.Error()}); return }
-        if r.ContentLength > 50*1024*1024 { writeJSON(w, 413, apiError{Error:"maximum test upload size is 50 MB"}); return }
-        dst := filepath.Join(dataDir, name)
-        tmp, err := os.CreateTemp(dataDir, ".upload-*")
-        if err != nil { writeJSON(w, 500, apiError{Error:"could not create temporary upload"}); return }
-        defer os.Remove(tmp.Name())
-        if _, err = io.Copy(tmp, http.MaxBytesReader(w, r.Body, 50*1024*1024)); err != nil {
-            _ = tmp.Close(); writeJSON(w, 413, apiError{Error:"upload failed or exceeded 50 MB"}); return
-        }
-        if err = tmp.Close(); err != nil { writeJSON(w, 500, apiError{Error:"could not finish upload"}); return }
-        if err = os.Rename(tmp.Name(), dst); err != nil { writeJSON(w, 500, apiError{Error:"could not save file"}); return }
-        log.Printf("file uploaded: %s", name)
-        writeJSON(w, 201, map[string]any{"saved":true,"name":name})
-    default:
-        w.Header().Set("Allow", "GET, PUT")
-        writeJSON(w, 405, apiError{Error:"method not allowed"})
-    }
+	switch r.Method {
+	case http.MethodGet:
+		entries, err := os.ReadDir(dataDir)
+		if err != nil {
+			writeJSON(w, 500, apiError{Error: "could not read storage directory"})
+			return
+		}
+		files := make([]map[string]any, 0, len(entries))
+		for _, e := range entries {
+			if e.IsDir() || strings.EqualFold(e.Name(), "users.json") || strings.HasPrefix(e.Name(), ".upload-") {
+				continue
+			}
+			info, err := e.Info()
+			if err != nil {
+				continue
+			}
+			files = append(files, map[string]any{"name": e.Name(), "size_bytes": info.Size(), "modified": info.ModTime().UTC().Format(time.RFC3339)})
+		}
+		writeJSON(w, 200, map[string]any{"items": files, "count": len(files)})
+	case http.MethodPut:
+		name, err := safeName(r.URL.Query().Get("name"))
+		if err != nil {
+			writeJSON(w, 400, apiError{Error: "invalid file name"})
+			return
+		}
+		if r.ContentLength > 50*1024*1024 {
+			writeJSON(w, 413, apiError{Error: "maximum test upload size is 50 MB"})
+			return
+		}
+		dst := filepath.Join(dataDir, name)
+		tmp, err := os.CreateTemp(dataDir, ".upload-*")
+		if err != nil {
+			writeJSON(w, 500, apiError{Error: "could not create temporary upload"})
+			return
+		}
+		defer os.Remove(tmp.Name())
+		if _, err = io.Copy(tmp, http.MaxBytesReader(w, r.Body, 50*1024*1024)); err != nil {
+			_ = tmp.Close()
+			writeJSON(w, 413, apiError{Error: "upload failed or exceeded 50 MB"})
+			return
+		}
+		if err = tmp.Close(); err != nil {
+			writeJSON(w, 500, apiError{Error: "could not finish upload"})
+			return
+		}
+		if err = os.Rename(tmp.Name(), dst); err != nil {
+			writeJSON(w, 500, apiError{Error: "could not save file"})
+			return
+		}
+		log.Printf("file uploaded: %s", name)
+		writeJSON(w, 201, map[string]any{"saved": true, "name": name})
+	default:
+		w.Header().Set("Allow", "GET, PUT")
+		writeJSON(w, 405, apiError{Error: "method not allowed"})
+	}
 }
 func fileHandler(w http.ResponseWriter, r *http.Request) {
-    name, err := safeName(strings.TrimPrefix(r.URL.Path, "/api/v1/files/"))
-    if err != nil { writeJSON(w, 400, apiError{Error:err.Error()}); return }
-    path := filepath.Join(dataDir, name)
-    switch r.Method {
-    case http.MethodGet:
-        f, err := os.Open(path)
-        if err != nil { http.NotFound(w,r); return }
-        defer f.Close()
-        w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-        http.ServeContent(w,r,name,time.Time{},f)
-    case http.MethodDelete:
-        if err := os.Remove(path); err != nil {
-            if os.IsNotExist(err) { http.NotFound(w,r) } else { writeJSON(w,500,apiError{Error:"delete failed"}) }
-            return
-        }
-        log.Printf("file deleted: %s", name)
-        writeJSON(w,200,map[string]any{"deleted":true,"name":name})
-    default:
-        w.Header().Set("Allow","GET, DELETE")
-        writeJSON(w,405,apiError{Error:"method not allowed"})
-    }
+	name, err := safeName(strings.TrimPrefix(r.URL.Path, "/api/v1/files/"))
+	if err != nil {
+		writeJSON(w, 400, apiError{Error: "invalid file name"})
+		return
+	}
+	path := filepath.Join(dataDir, name)
+	switch r.Method {
+	case http.MethodGet:
+		f, err := os.Open(path)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer f.Close()
+		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+		http.ServeContent(w, r, name, time.Time{}, f)
+	case http.MethodDelete:
+		if err := os.Remove(path); err != nil {
+			if os.IsNotExist(err) {
+				http.NotFound(w, r)
+			} else {
+				writeJSON(w, 500, apiError{Error: "delete failed"})
+			}
+			return
+		}
+		log.Printf("file deleted: %s", name)
+		writeJSON(w, 200, map[string]any{"deleted": true, "name": name})
+	default:
+		w.Header().Set("Allow", "GET, DELETE")
+		writeJSON(w, 405, apiError{Error: "method not allowed"})
+	}
 }
 func main() {
-    if len(os.Args) > 1 { dataDir = os.Args[1] } else {
-        exe, err := os.Executable()
-        if err != nil { log.Fatal(err) }
-        dataDir = filepath.Join(filepath.Dir(exe), "NightSyncData")
-    }
-    abs, err := filepath.Abs(dataDir); if err != nil { log.Fatal(err) }
-    dataDir = abs
-    if err := os.MkdirAll(dataDir, 0700); err != nil { log.Fatalf("cannot create data folder: %v",err) }
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defaultData := filepath.Join(filepath.Dir(exe), "NightSyncData")
+	storageFlag := flag.String("storage", defaultData, "Primary NightSync file storage directory")
+	backupFlag := flag.String("backup", "", "Configured backup destination (backup jobs are not active in this build)")
+	syncFlag := flag.String("sync", "", "Configured sync destination (sync jobs are not active in this build)")
+	logFileFlag := flag.String("log-file", "", "Optional log file path")
+	addrFlag := flag.String("addr", "127.0.0.1:8787", "HTTP listen address; development builds must remain loopback-only")
+	flag.Parse()
+	dataDir, err = filepath.Abs(*storageFlag)
+	if err != nil {
+		log.Fatal(err)
+	}
+	backupDir = *backupFlag
+	syncDir = *syncFlag
+	if *addrFlag != "127.0.0.1:8787" && *addrFlag != "localhost:8787" {
+		log.Fatal("this development build is restricted to localhost; remote/LAN binding is disabled")
+	}
+	if err = os.MkdirAll(dataDir, 0700); err != nil {
+		log.Fatalf("cannot create storage folder: %v", err)
+	}
+	if *logFileFlag != "" {
+		if err = os.MkdirAll(filepath.Dir(*logFileFlag), 0700); err != nil {
+			log.Fatalf("cannot create log directory: %v", err)
+		}
+		lf, openErr := os.OpenFile(*logFileFlag, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		if openErr != nil {
+			log.Fatalf("cannot open log file: %v", openErr)
+		}
+		defer lf.Close()
+		log.SetOutput(lf)
+	}
 
-    mux := http.NewServeMux()
-    mux.HandleFunc("/health", func(w http.ResponseWriter,r *http.Request) {
-        if !method(w,r,http.MethodGet) { return }
-        writeJSON(w,200,map[string]any{
-            "name":"NightSync Server","status":"online","version":version,
-            "time":time.Now().UTC().Format(time.RFC3339),
-            "uptime_seconds":int64(time.Since(startedAt).Seconds()),
-        })
-    })
-    mux.HandleFunc("/api/v1/status", func(w http.ResponseWriter,r *http.Request) {
-        if !method(w,r,http.MethodGet) { return }
-        var m runtime.MemStats; runtime.ReadMemStats(&m)
-        total, free, err := diskSpace(dataDir)
-        storage := map[string]any{"path":dataDir,"total_bytes":total,"free_bytes":free,"used_bytes":total-free}
-        if err != nil { storage["warning"] = err.Error() }
-        writeJSON(w,200,map[string]any{
-            "name":"NightSync Server","status":"online","version":version,
-            "time":time.Now().UTC().Format(time.RFC3339),
-            "uptime_seconds":int64(time.Since(startedAt).Seconds()),
-            "process_memory_bytes":m.Sys,"heap_alloc_bytes":m.HeapAlloc,
-            "goroutines":runtime.NumGoroutine(),"go_version":runtime.Version(),
-            "storage":storage,"mode":"local-development",
-        })
-    })
-    mux.HandleFunc("/api/v1/files", filesHandler)
-    mux.HandleFunc("/api/v1/files/", fileHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if !method(w, r, http.MethodGet) {
+			return
+		}
+		writeJSON(w, 200, map[string]any{"name": "NightSync Server", "status": "online", "version": version,
+			"time": time.Now().UTC().Format(time.RFC3339), "uptime_seconds": int64(time.Since(startedAt).Seconds())})
+	})
+	mux.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
+		if !method(w, r, http.MethodGet) {
+			return
+		}
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		total, free, err := diskSpace(dataDir)
+		storage := map[string]any{"path": dataDir, "total_bytes": total, "free_bytes": free, "used_bytes": total - free}
+		if err != nil {
+			storage["warning"] = err.Error()
+		}
+		writeJSON(w, 200, map[string]any{"name": "NightSync Server", "status": "online", "version": version,
+			"time": time.Now().UTC().Format(time.RFC3339), "uptime_seconds": int64(time.Since(startedAt).Seconds()),
+			"process_memory_bytes": m.Sys, "heap_alloc_bytes": m.HeapAlloc, "goroutines": runtime.NumGoroutine(),
+			"go_version": runtime.Version(), "storage": storage, "mode": "local-development",
+			"destinations": map[string]any{"backup_path": backupDir, "sync_path": syncDir,
+				"backup_state": "configured-not-active", "sync_state": "configured-not-active"}})
+	})
+	mux.HandleFunc("/api/v1/files", filesHandler)
+	mux.HandleFunc("/api/v1/files/", fileHandler)
 
-    auth, err = newAuthStore(dataDir)
-    if err != nil { log.Fatalf("cannot load users: %v", err) }
-    authRoutes(mux)
-    protected := http.NewServeMux()
-    protected.Handle("/api/v1/status", authMiddleware(mux))
-    protected.Handle("/api/v1/files", authMiddleware(mux))
-    protected.Handle("/api/v1/files/", authMiddleware(mux))
-    protected.Handle("/api/v1/setup", mux)
-    protected.Handle("/api/v1/login", mux)
-    protected.Handle("/api/v1/me", mux)
-    protected.Handle("/api/v1/change-password", mux)
-    protected.Handle("/api/v1/admin/users", mux)
-    protected.Handle("/api/v1/admin/users/", mux)
-    protected.Handle("/health", mux)
+	auth, err = newAuthStore(dataDir)
+	if err != nil {
+		log.Fatalf("cannot load users: %v", err)
+	}
+	authRoutes(mux)
+	protected := http.NewServeMux()
+	protected.Handle("/api/v1/status", authMiddleware(mux))
+	protected.Handle("/api/v1/files", authMiddleware(mux))
+	protected.Handle("/api/v1/files/", authMiddleware(mux))
+	protected.Handle("/api/v1/setup", mux)
+	protected.Handle("/api/v1/login", mux)
+	protected.Handle("/api/v1/me", mux)
+	protected.Handle("/api/v1/change-password", mux)
+	protected.Handle("/api/v1/admin/users", mux)
+	protected.Handle("/api/v1/admin/users/", mux)
+	protected.Handle("/api/v1/admin/server/stop", mux)
+	protected.Handle("/health", mux)
 
-    addr := "127.0.0.1:8787"
-    log.Printf("NightSync Server %s starting",version)
-    log.Printf("Storage directory: %s",dataDir)
-    log.Printf("Health: http://%s/health",addr)
-    log.Printf("Status: http://%s/api/v1/status",addr)
-    log.Printf("Files:  http://%s/api/v1/files",addr)
-    log.Printf("First-time setup: POST http://%s/api/v1/setup (only before first account)", addr)
-    log.Printf("WARNING: localhost-only development build; no TLS; do not expose to LAN/internet")
-    log.Fatal(http.ListenAndServe(addr,protected))
+	addr := "127.0.0.1:8787"
+	srv := &http.Server{Addr: addr, Handler: protected, ReadHeaderTimeout: 5 * time.Second}
+	log.Printf("NightSync Server %s starting", version)
+	log.Printf("Primary storage: %s", dataDir)
+	log.Printf("Backup destination (configured only): %s", backupDir)
+	log.Printf("Sync destination (configured only): %s", syncDir)
+	log.Printf("Health: http://%s/health", addr)
+	log.Printf("WARNING: localhost-only development build; do not expose to LAN/internet")
+	go func() {
+		<-shutdownRequested
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
+	}()
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
+	log.Printf("NightSync Server stopped")
 }

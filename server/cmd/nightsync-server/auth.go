@@ -405,7 +405,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			writeJSON(w, 401, apiError{Error: "authentication required"})
 			return
 		}
-		if u.MustChangePassword && r.URL.Path != "/api/v1/change-password" && r.URL.Path != "/api/v1/me" {
+		if u.MustChangePassword && r.URL.Path != "/api/v1/change-password" && r.URL.Path != "/api/v1/me" && r.URL.Path != "/api/v1/logout" {
 			writeJSON(w, 403, apiError{Error: "password change required"})
 			return
 		}

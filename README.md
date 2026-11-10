@@ -51,4 +51,4 @@ See `docs/SERVER-UI.md` for installation steps.
 - Android currently has sign-in and password-change foundation screens; remote access from a phone is not enabled in this localhost-only server build.
 - No encryption-at-rest, recycle bin, SMB, media streaming, camera backup or production security review yet.
 
-See `docs/HOST-SETUP.md` and `docs/ACCOUNT-SETUP.md`.
+See `docs/SERVER-UI.md`, `docs/WINDOWS-SERVICE.md`, `docs/DEVELOPMENT-STATUS.md`, and `docs/ACCOUNT-SETUP.md`.

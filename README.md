@@ -1,7 +1,9 @@
 # NightSync
 
 **A product by The Vibe Project**  
-Free and open-source personal cloud software.
+Free-software personal cloud project, licensed under **GNU AGPL v3** (`LICENSE`).
+
+The software may be used, modified, and redistributed under AGPL v3. If you modify the server and make that modified version available for network use, AGPL v3 requires offering the corresponding source to those users. This license does not itself promise support, hosted infrastructure, or a no-charge commercial service.
 
 > **Development status: not ready for public production release.** The current build is a local-host prototype. Secure remote connectivity and real scheduled synchronization are still being developed.
 

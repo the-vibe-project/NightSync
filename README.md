@@ -2,7 +2,7 @@
 
 Free and open-source self-hosted NAS and personal cloud.
 
-**Status: fresh development scaffold — not a production NAS and not yet security-reviewed.**
+**Status: connection-first development scaffold — not a production NAS and not yet security-reviewed.**
 
 ## Product direction
 
@@ -28,8 +28,8 @@ docs/                    Architecture and development notes
 
 ## Current capabilities
 
-- Android starter screen.
-- Windows desktop starter screen.
+- Android server-address screen with saved HTTPS address and health-check attempt.
+- Windows desktop connection profiles, HTTPS health-check attempt and future host option.
 - Go HTTP health endpoint bound to localhost.
 - Automated GitHub Actions build definitions for Android APK, Windows app and Go server executable.
 

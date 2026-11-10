@@ -7,6 +7,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,12 +88,12 @@ class NightSyncLaunchTest {
             val createRequest = server.takeRequest()
             val refreshedListRequest = server.takeRequest()
 
-            assert(loginRequest.path == "/api/v1/login")
-            assert(listRequest.path?.startsWith("/api/v1/files") == true)
-            assert(createRequest.method == "POST")
-            assert(createRequest.path == "/api/v1/folders")
-            assert(createRequest.getHeader("Authorization") == "Bearer test-token")
-            assert(refreshedListRequest.path?.startsWith("/api/v1/files") == true)
+            assertEquals("/api/v1/login", loginRequest.path)
+            assertTrue(listRequest.path?.startsWith("/api/v1/files") == true)
+            assertEquals("POST", createRequest.method)
+            assertEquals("/api/v1/folders", createRequest.path)
+            assertEquals("Bearer test-token", createRequest.getHeader("Authorization"))
+            assertTrue(refreshedListRequest.path?.startsWith("/api/v1/files") == true)
         } finally {
             server.shutdown()
         }

@@ -244,3 +244,24 @@ func TestFileManagerDuplicateFolderReturnsConflict(t *testing.T) {
 		t.Fatalf("duplicate folder should return 409; status=%d body=%s", second.Code, second.Body.String())
 	}
 }
+
+
+func TestRequestFileRootRejectsUsersRootSymlink(t *testing.T) {
+	setupFileAPITest(t)
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(dataDir, "users")); err != nil {
+		t.Skipf("symlink creation unavailable: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/files", nil)
+	request.Header.Set("Authorization", "Bearer alice-token")
+	if root, err := requestFileRoot(request); err == nil || root != "" {
+		t.Fatalf("expected symlinked users root to be rejected, got root=%q err=%v", root, err)
+	}
+	entries, err := os.ReadDir(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("server created data outside the configured storage root: %+v", entries)
+	}
+}

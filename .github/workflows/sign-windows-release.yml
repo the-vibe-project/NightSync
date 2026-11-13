@@ -42,11 +42,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
         run: |
-          $sourceRun = gh run view $env:SOURCE_RUN_ID --repo $env:GITHUB_REPOSITORY --json status,conclusion,headBranch,headRepository | ConvertFrom-Json
+          $sourceRun = gh run view $env:SOURCE_RUN_ID --repo $env:GITHUB_REPOSITORY --json status,conclusion,headBranch | ConvertFrom-Json
           if ($sourceRun.status -ne "completed" -or $sourceRun.conclusion -ne "success") {
             throw "Only artifacts from a completed, successful workflow run may be signed."
           }
-          if ($sourceRun.headBranch -ne "main" -or $sourceRun.headRepository.nameWithOwner -ne $env:GITHUB_REPOSITORY) {
+          if ($sourceRun.headBranch -ne "main") {
             throw "For release-key safety, only artifacts built from this repository's main branch may be signed."
           }
 

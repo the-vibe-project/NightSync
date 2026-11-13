@@ -36,6 +36,20 @@ jobs:
             throw "Configure WINDOWS_SIGNING_PFX_BASE64 and WINDOWS_SIGNING_PFX_PASSWORD in repository Actions secrets before signing."
           }
 
+      - name: Verify source workflow run
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          $sourceRun = gh run view $env:SOURCE_RUN_ID --repo $env:GITHUB_REPOSITORY --json status,conclusion,headBranch,headRepository | ConvertFrom-Json
+          if ($sourceRun.status -ne "completed" -or $sourceRun.conclusion -ne "success") {
+            throw "Only artifacts from a completed, successful workflow run may be signed."
+          }
+          if ($sourceRun.headBranch -ne "main" -or $sourceRun.headRepository.nameWithOwner -ne $env:GITHUB_REPOSITORY) {
+            throw "For release-key safety, only artifacts built from this repository's main branch may be signed."
+          }
+
       - name: Download unsigned Windows artifact
         uses: actions/download-artifact@v4
         with:

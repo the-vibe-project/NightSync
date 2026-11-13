@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -253,6 +254,7 @@ func (a *authStore) reset(username string) (string, error) {
 	return p, nil
 }
 func authRoutes(mux *http.ServeMux) {
+	loginLimiter := newLoginRateLimiter()
 	mux.HandleFunc("/api/v1/setup", func(w http.ResponseWriter, r *http.Request) {
 		if !method(w, r, http.MethodPost) {
 			return
@@ -279,6 +281,16 @@ func authRoutes(mux *http.ServeMux) {
 		if !method(w, r, http.MethodPost) {
 			return
 		}
+		client := clientAddress(r)
+		if allowed, retryAfter := loginLimiter.allowed(client); !allowed {
+			seconds := int(retryAfter.Seconds())
+			if seconds < 1 {
+				seconds = 1
+			}
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", seconds))
+			writeJSON(w, http.StatusTooManyRequests, apiError{Error: "too many failed sign-in attempts; try again later"})
+			return
+		}
 		var q struct {
 			Username string `json:"username"`
 			Password string `json:"password"`
@@ -289,9 +301,11 @@ func authRoutes(mux *http.ServeMux) {
 		}
 		u, t, e := auth.login(q.Username, q.Password)
 		if e != nil {
+			loginLimiter.recordFailure(client)
 			writeJSON(w, 401, apiError{Error: "invalid username or password"})
 			return
 		}
+		loginLimiter.clear(client)
 		writeJSON(w, 200, map[string]any{"token": t, "username": u.Username, "role": u.Role, "must_change_password": u.MustChangePassword})
 	})
 	mux.HandleFunc("/api/v1/logout", func(w http.ResponseWriter, r *http.Request) {

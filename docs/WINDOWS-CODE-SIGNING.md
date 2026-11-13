@@ -12,31 +12,31 @@ Microsoft Artifact Signing (formerly Trusted Signing) is another option where th
 
 ## GitHub Actions setup
 
-The manual workflow is \`.github/workflows/sign-windows-release.yml\`. It downloads an artifact from a prior run in this repository, signs supported Windows binaries, verifies every signature, and uploads a separate \`*-signed\` artifact. It never replaces the original unsigned artifact.
+The manual workflow is `.github/workflows/sign-windows-release.yml`. It downloads an artifact from a prior run in this repository, signs supported Windows binaries, verifies every signature, and uploads a separate `*-signed` artifact. It never replaces the original unsigned artifact.
 
 After obtaining a CA-issued code-signing certificate in PFX format:
 
 1. Convert the PFX to Base64 locally. Do not commit the PFX or its password.
 2. In GitHub, open **Settings → Secrets and variables → Actions** and add:
-   - \`WINDOWS_SIGNING_PFX_BASE64\`: Base64-encoded PFX bytes.
-   - \`WINDOWS_SIGNING_PFX_PASSWORD\`: PFX password.
-   - \`WINDOWS_SIGNING_CERT_THUMBPRINT\`: optional certificate thumbprint if the PFX contains more than one valid code-signing certificate.
+   - `WINDOWS_SIGNING_PFX_BASE64`: Base64-encoded PFX bytes.
+   - `WINDOWS_SIGNING_PFX_PASSWORD`: PFX password.
+   - `WINDOWS_SIGNING_CERT_THUMBPRINT`: optional certificate thumbprint if the PFX contains more than one valid code-signing certificate.
 3. Open **Actions → Sign Windows release artifact → Run workflow**.
-4. Enter the source workflow run ID and the exact Windows artifact name (currently documented as \`NightSync-Windows\` in the repository README).
-5. Download and distribute only the resulting \`*-signed\` artifact after verifying its publisher and signature.
+4. Enter the source workflow run ID and the exact Windows artifact name (currently documented as `NightSync-Windows` in the repository README).
+5. Download and distribute only the resulting `*-signed` artifact after verifying its publisher and signature.
 
 Example Base64 conversion in PowerShell:
 
-\`\`\`powershell
+```powershell
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("publisher-code-signing.pfx")) |
     Set-Clipboard
-\`\`\`
+```
 
 Keep the private key under the CA's required hardware-token/HSM protections. Do not send the PFX or password in chat, issues, pull requests, or source control. Limit repository Actions-secret access to trusted maintainers and rotate/revoke credentials if exposed.
 
 ## Local signing script
 
-\`scripts/sign-windows-artifacts.ps1\` uses the Windows SDK SignTool. It requires a valid, currently trusted code-signing certificate with a private key, signs \`.exe\`, \`.dll\`, \`.msi\`, \`.msix\`, \`.appx\`, and \`.cab\` files with SHA-256, adds an RFC 3161 SHA-256 timestamp, and verifies the Authenticode signature and expected certificate thumbprint. It fails closed if signing or verification fails.
+`scripts/sign-windows-artifacts.ps1` uses the Windows SDK SignTool. It requires a valid, currently trusted code-signing certificate with a private key, signs `.exe`, `.dll`, `.msi`, `.msix`, `.appx`, and `.cab` files with SHA-256, adds an RFC 3161 SHA-256 timestamp, and verifies the Authenticode signature and expected certificate thumbprint. It fails closed if signing or verification fails.
 
 The timestamp allows a signature to remain verifiable after the signing certificate expires, provided the certificate was valid when timestamped and the chain remains trusted.
 

@@ -17,6 +17,7 @@ try {
 
     $password = ConvertTo-SecureString -String $env:WINDOWS_SIGNING_PFX_PASSWORD -AsPlainText -Force
     $certificates = @(Import-PfxCertificate -FilePath $PfxPath -CertStoreLocation $certificateStore -Password $password)
+    $importedThumbprints += @($certificates | ForEach-Object { $_.Thumbprint })
     $validCertificates = @($certificates | Where-Object {
         $_.HasPrivateKey -and $_.NotBefore -le (Get-Date) -and $_.NotAfter -gt (Get-Date) -and
         @($_.EnhancedKeyUsageList | ForEach-Object { $_.ObjectId.Value }) -contains $codeSigningEku
@@ -28,7 +29,6 @@ try {
     if ($validCertificates.Count -ne 1) { throw "Expected exactly one valid code-signing certificate with a private key. Configure WINDOWS_SIGNING_CERT_THUMBPRINT if the PFX contains multiple certificates." }
 
     $certificate = $validCertificates[0]
-    $importedThumbprints += $certificate.Thumbprint
     Write-Host "Signing publisher certificate: $($certificate.Subject)"
     Write-Host "Certificate expires: $($certificate.NotAfter.ToUniversalTime().ToString('u'))"
 

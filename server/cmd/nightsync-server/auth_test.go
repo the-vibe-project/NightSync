@@ -1,7 +1,8 @@
 package main
 
 import (
-	"net/http"\n\t"net/http/httptest"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"

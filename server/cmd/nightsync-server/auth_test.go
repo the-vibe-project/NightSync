@@ -1,7 +1,7 @@
 package main
 
 import (
-	"net/http/httptest"
+	"net/http"\n\t"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -136,5 +136,50 @@ func TestAccountChangesRollBackWhenDatabaseWriteFails(t *testing.T) {
 	member := store.users["member"]
 	if !member.MustChangePassword {
 		t.Fatal("failed reset changed the user's temporary-password flag")
+	}
+}
+
+
+func TestAdminPasswordResetRequiresExactResetRoute(t *testing.T) {
+	store, err := newAuthStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.createFirstAdmin("owner", "A-Strong-Password-123!"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.create("member", "Member-Strong-Password-1!", "member", true); err != nil {
+		t.Fatal(err)
+	}
+	_, token, err := store.login("owner", "A-Strong-Password-123!")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	previousAuth := auth
+	auth = store
+	t.Cleanup(func() { auth = previousAuth })
+
+	mux := http.NewServeMux()
+	authRoutes(mux)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/users/member", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("reset without /reset suffix should be 404, got %d: %s", response.Code, response.Body.String())
+	}
+
+	if _, _, err := store.login("member", "Member-Strong-Password-1!"); err != nil {
+		t.Fatalf("unexpected password change through malformed route: %v", err)
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/users/member/reset", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response = httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("documented reset route should succeed, got %d: %s", response.Code, response.Body.String())
 	}
 }

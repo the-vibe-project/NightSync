@@ -388,7 +388,16 @@ func authRoutes(mux *http.ServeMux) {
 			writeJSON(w, 403, apiError{Error: "admin permission required"})
 			return
 		}
-		name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/admin/users/"), "/reset")
+		const prefix = "/api/v1/admin/users/"
+		if !strings.HasPrefix(r.URL.Path, prefix) || !strings.HasSuffix(r.URL.Path, "/reset") {
+			http.NotFound(w, r)
+			return
+		}
+		name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, prefix), "/reset")
+		if name == "" || strings.Contains(name, "/") {
+			http.NotFound(w, r)
+			return
+		}
 		p, e := auth.reset(name)
 		if e != nil {
 			writeJSON(w, 404, apiError{Error: e.Error()})

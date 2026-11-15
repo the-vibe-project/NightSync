@@ -9,6 +9,19 @@
 ## Create the first admin
 Open the NightSync Windows app. On the sign-in page, enter the local server address, choose an admin user ID, and a strong password of at least 12 characters. Select **Create first administrator**. This endpoint is available only while the user database is empty. Then sign in.
 
+## Manage users from the Windows Server dashboard
+1. Start NightSync Server and select **Manage users**.
+2. Sign in using the owner/admin username and password.
+3. The account list shows usernames, roles, and whether a password change is required.
+4. Enter a username, choose **member** or **admin**, and create the account. NightSync generates a unique temporary password and displays it once.
+5. Share that temporary password privately. The new user must change it after first sign-in.
+6. Select an account and choose **Reset selected user's password** to generate a new one-time temporary password.
+
+The management API is also available to authenticated administrators:
+- `GET /api/v1/admin/users` — lists usernames, roles, creation times and password-change status. Password hashes are never returned.
+- `POST /api/v1/admin/users` — creates a user.
+- `POST /api/v1/admin/users/{username}/reset` — resets a user's password.
+
 ## Create member accounts
 Account creation endpoint is `POST /api/v1/admin/users` with a bearer token from the admin login:
 `{"username":"member1","role":"member","temporary_password":"Admin-created-unique-12-char-password"}`

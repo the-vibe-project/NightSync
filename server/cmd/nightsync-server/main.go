@@ -393,7 +393,14 @@ func runServer() error {
 	tlsCertFlag := flag.String("tls-cert", "", "TLS certificate PEM file (required for non-loopback listeners)")
 	tlsKeyFlag := flag.String("tls-key", "", "TLS private key PEM file (required for non-loopback listeners)")
 	allowRemoteFlag := flag.Bool("allow-remote", false, "Explicitly allow a TLS-only listener on one concrete non-loopback interface IP")
+	duckDNSDomainFlag := flag.String("duckdns-domain", os.Getenv("DUCKDNS_DOMAIN"), "Optional DuckDNS hostname (subdomain or full .duckdns.org name); token must be supplied via DUCKDNS_TOKEN environment variable")
 	flag.Parse()
+	if strings.TrimSpace(*duckDNSDomainFlag) != "" {
+		if strings.TrimSpace(os.Getenv("DUCKDNS_TOKEN")) == "" {
+			return errors.New("DuckDNS is enabled but DUCKDNS_TOKEN is not set in the server process environment")
+		}
+		if _, err := normalizeDuckDNSName(*duckDNSDomainFlag); err != nil { return err }
+	}
 	dataDir, err = filepath.Abs(*storageFlag)
 	if err != nil {
 		return err
@@ -511,6 +518,10 @@ func runServer() error {
 	}
 	if useTLS {
 		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{serverCertificate}}
+	}
+	if strings.TrimSpace(*duckDNSDomainFlag) != "" {
+		log.Printf("DuckDNS dynamic DNS enabled for %s", strings.TrimSuffix(strings.TrimSpace(*duckDNSDomainFlag), ".duckdns.org")+".duckdns.org")
+		startDuckDNSUpdater(*duckDNSDomainFlag, os.Getenv("DUCKDNS_TOKEN"))
 	}
 	log.Printf("NightSync Server %s starting", version)
 	log.Printf("Primary storage: %s", dataDir)

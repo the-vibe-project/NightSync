@@ -98,3 +98,40 @@ NightSync.Server.Engine.exe --addr 192.168.1.20:9443 --allow-remote --tls-cert C
 ```
 
 **This is not yet a supported customer connection flow.** The Windows dashboard does not provision/protect certificates or configure this listener, Android does not yet pin a NightSync certificate identity, and no relay/tunnel service exists for networks where direct inbound connectivity is unavailable. Do not port-forward this prototype or use it as a worldwide-access release. The CLI guard is a transport foundation only; device pairing and end-to-end validation remain release blockers.
+
+
+## DuckDNS dynamic hostname foundation
+
+The server can now maintain a DuckDNS A record for a configured subdomain:
+
+- Set `DUCKDNS_DOMAIN` to the subdomain (for example `nightsync` or `nightsync.duckdns.org`).
+- Set `DUCKDNS_TOKEN` in the server process environment. Do not put the token in command-line arguments, QR payloads, logs, source control, or support screenshots.
+- Start the server with `--duckdns-domain nightsync` (or set `DUCKDNS_DOMAIN` and omit the flag).
+- The updater sends an HTTPS request to DuckDNS immediately at startup and every five minutes. It validates the hostname, requires the token, checks the provider's `OK` response, and does not log the token or request URL.
+
+Example PowerShell for a foreground test (use your own DuckDNS token; never commit it):
+
+```powershell
+$env:DUCKDNS_DOMAIN = "nightsync"
+$env:DUCKDNS_TOKEN = "<your-DuckDNS-account-token>"
+.\NightSync.Server.Engine.exe --duckdns-domain $env:DUCKDNS_DOMAIN
+```
+
+DuckDNS only maps a name to the current public IP. It does not create a TLS certificate, open Windows Firewall, configure router port forwarding, or bypass CGNAT. The hostname may resolve correctly while the PC remains unreachable from the internet.
+
+### Free TLS certificate path
+
+DuckDNS supports DNS TXT updates, and the open-source Lego ACME client supports DuckDNS DNS-01 validation. On a Windows host, use a trusted Lego release and issue a Let's Encrypt certificate for the exact hostname. Supply `DUCKDNS_TOKEN` through the process environment; protect the Lego account/certificate directory and the resulting private key with restrictive Windows ACLs. Configure the NightSync server with the issued certificate and key using `--tls-cert` and `--tls-key`.
+
+Example command (after installing a trusted Windows Lego binary):
+
+```powershell
+$env:DUCKDNS_TOKEN = "<your-DuckDNS-account-token>"
+.\lego.exe --email "you@example.com" --domains "nightsync.duckdns.org" --dns duckdns --path "C:\ProgramData\NightSync\acme" run
+```
+
+Certificate renewal must be automated and followed by a controlled server reload/restart. The current NightSync build does not yet automate Lego installation, certificate issuance/renewal, Windows private-key ACL setup, router port forwarding, or firewall rules. Do not expose the listener publicly until those steps and Android certificate pinning are implemented and tested.
+
+### Current release boundary
+
+This commit implements only the DuckDNS dynamic-IP updater in the Go server. It does not yet make the Android app connect over the internet. Worldwide access still requires: a configured hostname, a valid matching TLS certificate, a reachable listener (public IPv4/IPv6 and router forwarding), Windows Firewall configuration, Android certificate pinning and pairing, and a relay/tunnel fallback for CGNAT networks.

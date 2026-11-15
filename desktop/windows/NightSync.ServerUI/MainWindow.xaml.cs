@@ -555,8 +555,7 @@ public partial class MainWindow : Window
     {
         var logPath = CurrentLogPath;
         Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
-        if (!File.Exists(logPath)) File.WriteAllText(logPath, "NightSync activity will appear here.
-");
+        if (!File.Exists(logPath)) File.WriteAllText(logPath, "NightSync activity will appear here.\n");
         Process.Start(new ProcessStartInfo(logPath) { UseShellExecute = true });
     }
 

@@ -34,8 +34,9 @@ Use artifacts from the **same successful workflow run**. Do not mix packages fro
 
 ## Current release blockers
 
-- The server listens only on `127.0.0.1:8787`; a phone or another PC cannot connect to it yet.
-- TLS, secure device pairing, and remote authentication are not implemented.
+- The supported Windows dashboard still runs the server in loopback-only mode; Android cannot yet connect remotely.
+- The Go engine has an opt-in, TLS-only concrete-interface listener foundation behind explicit CLI flags, but it is not wired into the Windows dashboard and is not a supported customer connection flow.
+- Android certificate pinning, secure device pairing, remote authentication UX, and relay/tunnel connectivity are not implemented.
 - There is no real sync engine, offline queue, conflict resolution, or internet-reconnect synchronization.
 - Android schedule choices are saved locally but do not start transfers.
 - Backup/restore jobs, camera upload, SMB, media streaming, recycle bin, encryption at rest, and a full security review are not implemented.

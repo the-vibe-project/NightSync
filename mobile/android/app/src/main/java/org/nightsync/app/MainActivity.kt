@@ -16,6 +16,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CloudQueue
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -365,7 +374,10 @@ fun NightSyncAuthApp(
                 TopAppBar(
                     title = {
                         Column {
-                            Text("NIGHTSYNC", style = MaterialTheme.typography.labelMedium, color = NightCyan, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Icon(Icons.Outlined.CloudQueue, contentDescription = null, tint = NightCyan, modifier = Modifier.size(19.dp))
+                                Text("NIGHTSYNC", style = MaterialTheme.typography.labelMedium, color = NightCyan, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp)
+                            }
                             Text(if (token == null) "Your private cloud" else "Welcome, $username", style = MaterialTheme.typography.titleMedium, color = NightText)
                             Text("BY THE VIBE PROJECT", style = MaterialTheme.typography.labelSmall, color = NightMuted)
                         }
@@ -404,13 +416,13 @@ fun NightSyncAuthApp(
                         NavigationBarItem(
                             selected = activeTab == "files",
                             onClick = { activeTab = "files"; refreshFiles() },
-                            icon = { Text("▤") },
+                            icon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
                             label = { Text("My files") }
                         )
                         NavigationBarItem(
                             selected = activeTab == "schedule",
                             onClick = { activeTab = "schedule" },
-                            icon = { Text("◷") },
+                            icon = { Icon(Icons.Outlined.Schedule, contentDescription = null) },
                             label = { Text("Schedule") }
                         )
                     }
@@ -540,13 +552,13 @@ fun NightSyncAuthApp(
                                         currentFolder = if (parts.size <= 1) "" else parts.dropLast(1).joinToString("/")
                                         refreshFiles()
                                     }
-                                ) { Text("‹ Back", color = NightCyan) }
+                                ) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back", tint = NightCyan) }
                                 Text(
                                     if (currentFolder.isBlank()) "My files" else currentFolder.replace("/", "  /  "),
                                     color = NightText, style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.weight(1f)
                                 )
-                                IconButton(onClick = { refreshFiles() }, enabled = !filesLoading) { Text("↻", color = NightCyan) }
+                                IconButton(onClick = { refreshFiles() }, enabled = !filesLoading) { Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", tint = NightCyan) }
                             }
                         }
                         if (isDemoMode) {
@@ -589,8 +601,9 @@ fun NightSyncAuthApp(
                                     }.padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(if (item.isDirectory) "▰" else "▧", color = if (item.isDirectory) NightCyan else NightViolet,
-                                        style = MaterialTheme.typography.titleLarge)
+                                    Icon(if (item.isDirectory) Icons.Outlined.Folder else Icons.Outlined.Description,
+                                        contentDescription = if (item.isDirectory) "Folder" else "File",
+                                        tint = if (item.isDirectory) NightCyan else NightViolet, modifier = Modifier.size(23.dp))
                                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                                         Text(item.name, color = NightText, fontWeight = FontWeight.Medium, maxLines = 1)
                                         Text(if (item.isDirectory) "Folder" else item.sizeLabel, color = NightMuted, style = MaterialTheme.typography.bodySmall)

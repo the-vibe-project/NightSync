@@ -1,8 +1,9 @@
 package org.nightsync.app
 
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
@@ -15,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+@OptIn(ExperimentalTestApi::class)
 class NightSyncLaunchTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
@@ -60,9 +62,10 @@ class NightSyncLaunchTest {
             composeRule.onNodeWithText("Password").performTextInput("StrongTestPassword123!")
             composeRule.onNodeWithText("Connect").performClick()
 
-            composeRule.waitUntil(15_000) {
-                composeRule.onAllNodesWithText("hello.txt").fetchSemanticsNodes().isNotEmpty()
-            }
+            // The server response is delivered on Dispatchers.IO and updates Compose state
+            // asynchronously. Use the Compose test rule's synchronized node wait instead
+            // of querying the semantics tree from the waitUntil predicate.
+            composeRule.waitUntilAtLeastOneExists(hasText("hello.txt"), 15_000)
             composeRule.onNodeWithText("Documents").assertIsDisplayed()
             composeRule.onNodeWithText("hello.txt").assertIsDisplayed()
 
@@ -79,9 +82,7 @@ class NightSyncLaunchTest {
 
             composeRule.onNodeWithText("New folder name").performTextInput("Trips")
             composeRule.onNodeWithText("Create").performClick()
-            composeRule.waitUntil(15_000) {
-                composeRule.onAllNodesWithText("Trips").fetchSemanticsNodes().isNotEmpty()
-            }
+            composeRule.waitUntilAtLeastOneExists(hasText("Trips"), 15_000)
             composeRule.onNodeWithText("Trips").assertIsDisplayed()
 
             val loginRequest = server.takeRequest()

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -22,10 +23,40 @@ class NightSyncLaunchTest {
     @Test
     fun loginScreenLaunchesAndShowsRequiredFields() {
         composeRule.onNodeWithText("NIGHTSYNC").assertIsDisplayed()
-        composeRule.onNodeWithText("Welcome back").assertIsDisplayed()
+        composeRule.onNodeWithText("Connect to your server").assertIsDisplayed()
+        composeRule.onNodeWithText("Explore demo workspace").assertIsDisplayed()
         composeRule.onNodeWithText("Server address").assertIsDisplayed()
         composeRule.onNodeWithText("User ID").assertIsDisplayed()
         composeRule.onNodeWithText("Password").assertIsDisplayed()
+    }
+
+    @Test
+    fun demoWorkspaceOpensWithoutServerAndShowsSampleContent() {
+        composeRule.onNodeWithText("Explore demo workspace").performClick()
+        composeRule.onNodeWithText("Your server at a glance").assertIsDisplayed()
+        composeRule.onNodeWithText("ONLINE · DEMO").assertIsDisplayed()
+        composeRule.onNodeWithText("SIMULATED").assertIsDisplayed()
+        composeRule.onNodeWithText("1.2 TB").assertIsDisplayed()
+        composeRule.onNodeWithText("Files").performClick()
+        composeRule.onNodeWithText("Explore your cloud").assertIsDisplayed()
+        composeRule.onNodeWithText("SAMPLE DATA").assertIsDisplayed()
+        composeRule.onNodeWithText("Welcome.pdf").assertIsDisplayed()
+        composeRule.onNodeWithText("Documents").performClick()
+        composeRule.onNodeWithText("Meeting-notes.docx").assertIsDisplayed()
+        composeRule.onNodeWithText("Sample content only. Connect a server to manage your own files.").assertIsDisplayed()
+    }
+
+    @Test
+    fun demoBackupSettingsAreInteractiveAndSimulationIsSafe() {
+        composeRule.onNodeWithText("Explore demo workspace").performClick()
+        composeRule.onNodeWithText("Backup").performClick()
+        composeRule.onNodeWithText("WHAT TO BACK UP").assertIsDisplayed()
+        composeRule.onNodeWithText("Photos").assertIsDisplayed()
+        composeRule.onNodeWithText("Videos").assertIsDisplayed()
+        composeRule.onNodeWithText("Wi-Fi + mobile data").performScrollTo().performClick()
+        composeRule.onNodeWithText("Simulate backup").performScrollTo().performClick()
+        val result = composeRule.onNodeWithText("Simulation complete · 3 categories · Wi-Fi + mobile data · Daily. No files were read or transferred.")
+        result.performScrollTo().assertIsDisplayed()
     }
 
     @Test

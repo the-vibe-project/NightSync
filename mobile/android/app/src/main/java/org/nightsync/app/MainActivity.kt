@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -141,6 +143,29 @@ fun NightSyncAuthApp(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var address by remember { mutableStateOf(initialAddress) }
+    var qrMessage by remember { mutableStateOf("") }
+    val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val raw = result.contents
+        if (raw.isNullOrBlank()) {
+            qrMessage = "QR scan cancelled."
+        } else {
+            try {
+                val payload = JSONObject(raw)
+                val scannedUrl = payload.optString("url").trim().trimEnd('/')
+                val validType = payload.optString("type") == "nightsync-connect"
+                val validVersion = payload.optInt("version") == 1
+                val parsed = URL(scannedUrl)
+                if (!validType || !validVersion || parsed.protocol != "https" || parsed.host.isBlank()) {
+                    throw IllegalArgumentException("This is not a valid secure NightSync connection QR code.")
+                }
+                address = scannedUrl
+                onSaveAddress(scannedUrl)
+                qrMessage = "Secure server address added. Sign in with your NightSync account."
+            } catch (e: Exception) {
+                qrMessage = e.message ?: "Could not read this NightSync QR code."
+            }
+        }
+    }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
@@ -468,6 +493,21 @@ fun NightSyncAuthApp(
                             HorizontalDivider(color = Color(0xFF24364B))
                             Text("Connect to your server", style = MaterialTheme.typography.titleMedium, color = NightText, fontWeight = FontWeight.SemiBold)
                             PremiumField(address, { address = it }, "Server address")
+                            OutlinedButton(
+                                onClick = {
+                                    qrScanner.launch(
+                                        ScanOptions()
+                                            .setPrompt("Scan the QR code shown in your NightSync Windows dashboard")
+                                            .setBeepEnabled(false)
+                                            .setOrientationLocked(false)
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) { Text("Scan server QR code") }
+                            if (qrMessage.isNotBlank()) {
+                                Text(qrMessage, color = NightCyan, style = MaterialTheme.typography.bodySmall)
+                            }
                             PremiumField(username, { username = it }, "User ID")
                             PremiumField(password, { password = it }, "Password", secret = true)
                             Button(
@@ -505,6 +545,7 @@ fun NightSyncAuthApp(
                                 modifier = Modifier.fillMaxWidth().height(50.dp),
                                 shape = RoundedCornerShape(13.dp)
                             ) { Text(if (busy) "Connecting…" else "Connect") }
+                            Text(status, color = NightCyan, style = MaterialTheme.typography.bodySmall)
                             Text("Secure connections use HTTPS. Local emulator addresses are for development only.", color = NightMuted, style = MaterialTheme.typography.bodySmall)
                         }
                         OutlinedButton(onClick = {
@@ -521,7 +562,6 @@ fun NightSyncAuthApp(
                             Text("Explore demo workspace")
                         }
                         Text("Try NightSync with sample files. Demo mode never connects to a server or changes real files.", color = NightMuted, style = MaterialTheme.typography.bodySmall)
-                        Text(status, color = NightCyan, style = MaterialTheme.typography.bodySmall)
                     }
                 } else if (mustChange) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {

@@ -75,3 +75,23 @@ Before LAN pairing can be enabled:
 ## Implementation note
 
 This feature must be delivered as a coordinated Windows UI + Go server + Android client change. A QR image or a displayed private IP alone is not a working connection feature. Keep the dashboard's remote-connect panel disabled until the secure transport and Android certificate pinning path are complete.
+
+
+## Implementation progress — transport foundation
+
+The Go server now has a fail-closed listener configuration foundation:
+
+- Default startup remains `127.0.0.1:8787` over HTTP for local development.
+- A non-loopback listener requires the explicit `--allow-remote` opt-in.
+- Remote mode must bind one concrete unicast IP address; wildcard binds such as `0.0.0.0` and `::` are rejected.
+- Remote mode requires both `--tls-cert` and `--tls-key`; plaintext non-loopback listeners are rejected.
+- The server validates the certificate/key pair before starting and enforces TLS 1.2 or newer.
+- Hostnames are not accepted as bind addresses. Bind to the selected interface IP.
+
+Example for a host with a certificate whose SAN matches the selected interface IP:
+
+```powershell
+NightSync.Server.Engine.exe --addr 192.168.1.20:9443 --allow-remote --tls-cert C:\NightSync\certs\server.crt --tls-key C:\NightSync\certs\server.key
+```
+
+**This is not yet a supported customer connection flow.** The Windows dashboard does not provision/protect certificates or configure this listener, Android does not yet pin a NightSync certificate identity, and no relay/tunnel service exists for networks where direct inbound connectivity is unavailable. Do not port-forward this prototype or use it as a worldwide-access release. The CLI guard is a transport foundation only; device pairing and end-to-end validation remain release blockers.

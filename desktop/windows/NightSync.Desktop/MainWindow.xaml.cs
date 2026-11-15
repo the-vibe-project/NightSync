@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<ServerProfile> _profiles = new();
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(12) };
+    private readonly HttpClient _healthHttp = new() { Timeout = TimeSpan.FromSeconds(3) };
     private readonly string _profilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NightSync", "servers.json");
     private string _serverAddress = "http://127.0.0.1:8787";
@@ -197,7 +198,7 @@ public partial class MainWindow : Window
     {
         for(var i=0;i<timeoutSeconds*2;i++)
         {
-            try{using var response=await _http.GetAsync("http://127.0.0.1:8787/health");if(response.IsSuccessStatusCode==shouldBeOnline)return true;}
+            try{using var response=await _healthHttp.GetAsync("http://127.0.0.1:8787/health");if(response.IsSuccessStatusCode==shouldBeOnline)return true;}
             catch{if(!shouldBeOnline)return true;}
             await Task.Delay(500);
         }
@@ -228,6 +229,12 @@ public partial class MainWindow : Window
     private async void StopServer_Click(object sender,RoutedEventArgs e)=>await StopServerAsync();
     private async Task StopServerAsync()
     {
+        if (!ServerAddressPolicy.IsLocalServerAddress(AppSession.ServerAddress))
+        {
+            HostStatusText.Text = "Local sign-in required";
+            HostDetailsText.Text = "Sign in to the local NightSync server before stopping it. No session token was sent to localhost.";
+            return;
+        }
         try
         {
             using var response=await _http.PostAsync("http://127.0.0.1:8787/api/v1/admin/server/stop",null);
@@ -240,6 +247,12 @@ public partial class MainWindow : Window
     }
     private async void RestartServer_Click(object sender,RoutedEventArgs e)
     {
+        if (!ServerAddressPolicy.IsLocalServerAddress(AppSession.ServerAddress))
+        {
+            HostStatusText.Text = "Local sign-in required";
+            HostDetailsText.Text = "Sign in to the local NightSync server before restarting it. No session token was sent to localhost.";
+            return;
+        }
         try
         {
             await StopServerAsync();

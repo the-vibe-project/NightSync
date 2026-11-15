@@ -5,7 +5,9 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
-using System.Windows.Media;\nusing System.Windows.Media.Imaging;\nusing QRCoder;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using QRCoder;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -20,7 +22,8 @@ public partial class MainWindow : Window
     {
         public string MainPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "NightSync Storage");
         public string BackupPath { get; set; } = "";
-        public string SyncPath { get; set; } = "";\n        public string ServerAddress { get; set; } = "";
+        public string SyncPath { get; set; } = "";
+        public string ServerAddress { get; set; } = "";
         public bool SetupComplete { get; set; }
     }
 
@@ -67,7 +70,8 @@ public partial class MainWindow : Window
         }
         catch { _config = new Config(); }
 
-        MainBox.Text = _config.MainPath;\n        PairAddressBox.Text = _config.ServerAddress;
+        MainBox.Text = _config.MainPath;
+        PairAddressBox.Text = _config.ServerAddress;
         BackupBox.Text = _config.BackupPath;
         SyncBox.Text = _config.SyncPath;
         LoadLog();
@@ -75,7 +79,8 @@ public partial class MainWindow : Window
 
     private void SaveConfig()
     {
-        _config.MainPath = MainBox.Text.Trim();\n        _config.ServerAddress = PairAddressBox.Text.Trim();
+        _config.MainPath = MainBox.Text.Trim();
+        _config.ServerAddress = PairAddressBox.Text.Trim();
         _config.BackupPath = BackupBox.Text.Trim();
         _config.SyncPath = SyncBox.Text.Trim();
 
@@ -550,7 +555,8 @@ public partial class MainWindow : Window
     {
         var logPath = CurrentLogPath;
         Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
-        if (!File.Exists(logPath)) File.WriteAllText(logPath, "NightSync activity will appear here.\n");
+        if (!File.Exists(logPath)) File.WriteAllText(logPath, "NightSync activity will appear here.
+");
         Process.Start(new ProcessStartInfo(logPath) { UseShellExecute = true });
     }
 

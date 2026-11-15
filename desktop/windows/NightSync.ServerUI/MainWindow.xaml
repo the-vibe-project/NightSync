@@ -104,7 +104,8 @@
       <Grid>
       <Grid.ColumnDefinitions><ColumnDefinition Width="1.08*"/><ColumnDefinition Width="0.92*"/></Grid.ColumnDefinitions>
 
-      <StackPanel Margin="0,0,9,0">\n        <Border Background="#101827" BorderBrush="#243B57" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,13">
+      <StackPanel Margin="0,0,9,0">
+        <Border Background="#101827" BorderBrush="#243B57" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,13">
           <StackPanel>
             <TextBlock Text="CONNECT A DEVICE" Foreground="#69E5FF" FontSize="9" FontWeight="Bold"/>
             <TextBlock Text="Connection QR code" Foreground="#ECF7FF" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0"/>

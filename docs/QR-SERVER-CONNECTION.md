@@ -86,6 +86,9 @@ The Go server now has a fail-closed listener configuration foundation:
 - Remote mode must bind one concrete unicast IP address; wildcard binds such as `0.0.0.0` and `::` are rejected.
 - Remote mode requires both `--tls-cert` and `--tls-key`; plaintext non-loopback listeners are rejected.
 - The server validates the certificate/key pair before starting and enforces TLS 1.2 or newer.
+
+- In TLS mode, `GET /api/v1/server/identity` returns the protocol version, server version, TLS minimum, and SHA-256 fingerprint of the presented leaf certificate. The endpoint returns 404 over plaintext HTTP and contains no credentials or private key material.
+- The fingerprint is intended for out-of-band verification and the future Android QR pinning flow; Android does not consume or enforce it yet.
 - Hostnames are not accepted as bind addresses. Bind to the selected interface IP.
 
 Example for a host with a certificate whose SAN matches the selected interface IP:

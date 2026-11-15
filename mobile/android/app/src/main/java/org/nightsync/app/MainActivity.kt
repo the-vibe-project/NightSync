@@ -136,6 +136,7 @@ fun NightSyncAuthApp(
     var password by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var token by remember { mutableStateOf<String?>(null) }
+    var isDemoMode by remember { mutableStateOf(false) }
     var role by remember { mutableStateOf("") }
     var mustChange by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Connect to your NightSync server") }
@@ -157,6 +158,17 @@ fun NightSyncAuthApp(
     var fileToDownload by remember { mutableStateOf<CloudItem?>(null) }
 
     fun refreshFiles() {
+        if (isDemoMode) {
+            cloudItems = when (currentFolder) {
+                "Documents" -> listOf(CloudItem("Meeting-notes.docx", "Documents/Meeting-notes.docx", false, 82944, "Today"), CloudItem("Research.pdf", "Documents/Research.pdf", false, 3145728, "Nov 10"))
+                "Photos" -> listOf(CloudItem("Weekend.jpg", "Photos/Weekend.jpg", false, 4718592, "Yesterday"), CloudItem("Workspace.png", "Photos/Workspace.png", false, 2097152, "Nov 09"))
+                "Projects" -> listOf(CloudItem("NightSync", "Projects/NightSync", true, 0, "Today"), CloudItem("readme.md", "Projects/readme.md", false, 8192, "Today"))
+                "Projects/NightSync" -> listOf(CloudItem("app", "Projects/NightSync/app", true, 0, "Today"), CloudItem("README.md", "Projects/NightSync/README.md", false, 12288, "Today"))
+                else -> listOf(CloudItem("Documents", "Documents", true, 0, "Today"), CloudItem("Photos", "Photos", true, 0, "Yesterday"), CloudItem("Projects", "Projects", true, 0, "Yesterday"), CloudItem("Welcome.pdf", "Welcome.pdf", false, 1842176, "Today"), CloudItem("budget-2026.xlsx", "budget-2026.xlsx", false, 245760, "Yesterday"), CloudItem("notes.txt", "notes.txt", false, 4096, "Nov 12"))
+            }
+            filesMessage = "Demo workspace · sample data only. No server is connected."
+            return
+        }
         val currentToken = token ?: return
         scope.launch {
             filesLoading = true
@@ -197,6 +209,7 @@ fun NightSyncAuthApp(
     }
 
     fun createFolder() {
+        if (isDemoMode) { filesMessage = "Folder creation is disabled in the demo."; return }
         val cleanName = newFolderName.trim()
         if (cleanName.isBlank() || cleanName == "." || cleanName == ".." || cleanName.contains("/") || cleanName.contains("\\")) {
             filesMessage = "Enter a valid folder name."
@@ -312,6 +325,7 @@ fun NightSyncAuthApp(
     }
 
     fun deleteSelected() {
+        if (isDemoMode) { itemToDelete = null; filesMessage = "File actions are disabled in the demo."; return }
         val selected = itemToDelete ?: return
         itemToDelete = null
         val currentToken = token ?: return
@@ -358,15 +372,18 @@ fun NightSyncAuthApp(
                     },
                     actions = {
                         if (token != null) {
+                            if (isDemoMode) Surface(color = NightRaised, shape = RoundedCornerShape(50)) { Text("DEMO", color = NightCyan, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) }
                             TextButton(onClick = {
                                 val sessionToken = token
+                                val wasDemo = isDemoMode
+                                isDemoMode = false
                                 token = null
                                 password = ""
                                 activeTab = "files"
                                 currentFolder = ""
                                 cloudItems = emptyList()
                                 status = "Signed out."
-                                if (sessionToken != null) {
+                                if (sessionToken != null && !wasDemo) {
                                     scope.launch {
                                         withContext(Dispatchers.IO) {
                                             try { requestJson(address, "/api/v1/logout", "POST", token = sessionToken) } catch (_: Exception) { }
@@ -411,8 +428,11 @@ fun NightSyncAuthApp(
                     ) {
                         Text("Private storage. Simple control.", color = NightMuted, style = MaterialTheme.typography.bodyMedium)
                         PremiumCard {
-                            Text("Welcome back", style = MaterialTheme.typography.headlineSmall, color = NightText, fontWeight = FontWeight.SemiBold)
-                            Text("Connect to your NightSync server.", color = NightMuted)
+                            Text("YOUR FILES, YOUR SPACE", color = NightCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Text("Your cloud.\nYour control.", style = MaterialTheme.typography.headlineLarge, color = NightText, fontWeight = FontWeight.SemiBold)
+                            Text("A private space for everything that matters.", color = NightMuted, style = MaterialTheme.typography.bodyMedium)
+                            HorizontalDivider(color = Color(0xFF24364B))
+                            Text("Connect to your server", style = MaterialTheme.typography.titleMedium, color = NightText, fontWeight = FontWeight.SemiBold)
                             PremiumField(address, { address = it }, "Server address")
                             PremiumField(username, { username = it }, "User ID")
                             PremiumField(password, { password = it }, "Password", secret = true)
@@ -451,9 +471,22 @@ fun NightSyncAuthApp(
                                 modifier = Modifier.fillMaxWidth().height(50.dp),
                                 shape = RoundedCornerShape(13.dp)
                             ) { Text(if (busy) "Connecting…" else "Connect") }
-                            Text("Use a secure HTTPS address for remote connections. The local emulator address is for development testing only.",
-                                color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                            Text("Secure connections use HTTPS. Local emulator addresses are for development only.", color = NightMuted, style = MaterialTheme.typography.bodySmall)
                         }
+                        OutlinedButton(onClick = {
+                            isDemoMode = true
+                            token = "nightsync-demo-session"
+                            username = "Guest"
+                            mustChange = false
+                            currentFolder = ""
+                            activeTab = "files"
+                            status = "Exploring the sample workspace. No account or server required."
+                            refreshFiles()
+                        }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = NightCyan)) {
+                            Text("Explore demo workspace")
+                        }
+                        Text("Try NightSync with sample files. Demo mode never connects to a server or changes real files.", color = NightMuted, style = MaterialTheme.typography.bodySmall)
                         Text(status, color = NightCyan, style = MaterialTheme.typography.bodySmall)
                     }
                 } else if (mustChange) {
@@ -492,10 +525,10 @@ fun NightSyncAuthApp(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("My files", style = MaterialTheme.typography.headlineSmall, color = NightText, fontWeight = FontWeight.SemiBold)
-                                Text("Your private space", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                                Text(if (isDemoMode) "A preview of the NightSync experience" else "Your private space", color = NightMuted, style = MaterialTheme.typography.bodySmall)
                             }
                             Surface(shape = RoundedCornerShape(18.dp), color = NightRaised) {
-                                Text("PRIVATE", color = NightCyan, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp))
+                                Text(if (isDemoMode) "SAMPLE DATA" else "PRIVATE", color = NightCyan, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp))
                             }
                         }
                         Surface(color = NightRaised, shape = RoundedCornerShape(12.dp)) {
@@ -516,11 +549,17 @@ fun NightSyncAuthApp(
                                 IconButton(onClick = { refreshFiles() }, enabled = !filesLoading) { Text("↻", color = NightCyan) }
                             }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { uploadLauncher.launch(arrayOf("*/*")) }, enabled = !filesLoading, modifier = Modifier.weight(1f)) { Text("↑ Upload files") }
-                            OutlinedButton(onClick = { refreshFiles() }, enabled = !filesLoading, modifier = Modifier.weight(1f)) { Text("Refresh") }
+                        if (isDemoMode) {
+                            Surface(color = NightRaised, shape = RoundedCornerShape(14.dp)) {
+                                Text("Sample content only. Connect a server to manage your own files.", color = NightMuted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(14.dp))
+                            }
+                        } else {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { uploadLauncher.launch(arrayOf("*/*")) }, enabled = !filesLoading, modifier = Modifier.weight(1f)) { Text("Upload files") }
+                                OutlinedButton(onClick = { refreshFiles() }, enabled = !filesLoading, modifier = Modifier.weight(1f)) { Text("Refresh") }
+                            }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!isDemoMode) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = newFolderName, onValueChange = { newFolderName = it },
                                 modifier = Modifier.weight(1f), singleLine = true,
@@ -556,13 +595,13 @@ fun NightSyncAuthApp(
                                         Text(item.name, color = NightText, fontWeight = FontWeight.Medium, maxLines = 1)
                                         Text(if (item.isDirectory) "Folder" else item.sizeLabel, color = NightMuted, style = MaterialTheme.typography.bodySmall)
                                     }
-                                    if (!item.isDirectory) {
+                                    if (!item.isDirectory && !isDemoMode) {
                                         TextButton(onClick = {
                                             fileToDownload = item
                                             downloadLauncher.launch(item.name)
                                         }) { Text("Save", color = NightCyan) }
                                     }
-                                    TextButton(onClick = { itemToDelete = item }) { Text("⋯", color = NightMuted) }
+                                    if (!isDemoMode) TextButton(onClick = { itemToDelete = item }) { Text("More", color = NightMuted) }
                                 }
                                 HorizontalDivider(color = Color(0xFF1D2C40))
                             }
@@ -654,11 +693,11 @@ fun NightSyncAuthApp(
 private fun PremiumCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = NightSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
+        Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
     }
 }
 
@@ -667,7 +706,7 @@ private fun PremiumField(value: String, onValueChange: (String) -> Unit, label: 
     OutlinedTextField(
         value = value, onValueChange = onValueChange, label = { Text(label) },
         visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = NightCyan, focusedLabelColor = NightCyan,
             unfocusedBorderColor = Color(0xFF29435F), focusedTextColor = NightText,

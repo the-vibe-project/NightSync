@@ -36,6 +36,12 @@ Example Base64 conversion in PowerShell:
 
 Keep the private key under the CA's required hardware-token/HSM protections. Do not send the PFX or password in chat, issues, pull requests, or source control. Keep signing secrets scoped to the protected environment and limit its reviewers to trusted maintainers. Rotate/revoke credentials if exposed.
 
+## Open-source signing option
+
+NightSync is licensed under AGPL v3, so the project may be able to apply for the SignPath Foundation's free open-source signing program. Acceptance is not automatic. Its current terms require an actively maintained project that has already been released in the form to be signed, uses an OSI-approved license without commercial dual licensing, contains no proprietary components, and documents its functionality on the download page. The program also requires MFA, defined author/reviewer/approver roles, a published code-signing policy, verifiable builds from the project's own source, and manual approval for each release. The certificate identifies **SignPath Foundation** as the publisher, not The Vibe Project.
+
+NightSync has no public release or tag yet, so it does not currently satisfy the already-released requirement. Revisit this route after the first documented public release and check the Foundation's current terms before applying: https://signpath.org/terms.
+
 ## Local signing script
 
 `scripts/sign-windows-artifacts.ps1` uses the Windows SDK SignTool. It requires a valid, currently trusted code-signing certificate with a private key, signs `.exe`, `.dll`, `.msi`, `.msix`, `.appx`, and `.cab` files with SHA-256, adds an RFC 3161 SHA-256 timestamp, and verifies the Authenticode signature and expected certificate thumbprint. It fails closed if signing or verification fails.

@@ -24,4 +24,16 @@ public sealed class ServerAddressPolicyTests
     {
         Assert.Equal(expected, ServerAddressPolicy.IsSameAuthenticatedOrigin(candidate, authenticated));
     }
+
+    [Theory]
+    [InlineData("http://127.0.0.1:8787", true)]
+    [InlineData("http://localhost:8787", true)]
+    [InlineData("http://192.0.2.10:8787", false)]
+    [InlineData("https://localhost:8787", false)]
+    [InlineData("http://127.0.0.1:8080", false)]
+    [InlineData("http://localhost:8787?redirect=https://attacker.example", false)]
+    public void HostControlsRequireTheLocalNightSyncService(string address, bool expected)
+    {
+        Assert.Equal(expected, ServerAddressPolicy.IsLocalServerAddress(address));
+    }
 }

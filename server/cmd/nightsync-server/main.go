@@ -499,6 +499,7 @@ func runServer() error {
 	protected.Handle("/api/v1/admin/users/", mux)
 	protected.Handle("/api/v1/admin/server/stop", mux)
 	protected.Handle("/health", mux)
+	protected.Handle("/api/v1/server/identity", mux)
 
 	addr := *addrFlag
 	srv := &http.Server{

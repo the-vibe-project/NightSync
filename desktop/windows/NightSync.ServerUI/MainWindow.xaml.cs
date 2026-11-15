@@ -477,6 +477,17 @@ public partial class MainWindow : Window
 
     private async void OpenWizard_Click(object sender, RoutedEventArgs e) => await RunSetupWizardAsync();
 
+    private void ManageUsers_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsOnlineAsync().GetAwaiter().GetResult())
+        {
+            MessageBox.Show("Start the NightSync background server before managing accounts.", "NightSync user management", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var window = new AdminUsersWindow { Owner = this };
+        window.ShowDialog();
+    }
+
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         try

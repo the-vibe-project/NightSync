@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -402,10 +404,18 @@ func runServer() error {
 	if err != nil {
 		return fmt.Errorf("unsafe server listener configuration: %w", err)
 	}
+	var serverCertificate tls.Certificate
+	tlsFingerprint := ""
 	if useTLS {
-		if _, err := tls.LoadX509KeyPair(*tlsCertFlag, *tlsKeyFlag); err != nil {
+		serverCertificate, err = tls.LoadX509KeyPair(*tlsCertFlag, *tlsKeyFlag)
+		if err != nil {
 			return fmt.Errorf("cannot load configured TLS certificate and private key: %w", err)
 		}
+		if len(serverCertificate.Certificate) == 0 {
+			return errors.New("configured TLS certificate contains no leaf certificate")
+		}
+		fingerprint := sha256.Sum256(serverCertificate.Certificate[0])
+		tlsFingerprint = hex.EncodeToString(fingerprint[:])
 	}
 	if err = os.MkdirAll(dataDir, 0700); err != nil {
 		return fmt.Errorf("cannot create storage folder: %w", err)
@@ -423,6 +433,22 @@ func runServer() error {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/server/identity", func(w http.ResponseWriter, r *http.Request) {
+		if !method(w, r, http.MethodGet) {
+			return
+		}
+		if r.TLS == nil || tlsFingerprint == "" {
+			http.NotFound(w, r)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"protocol": "nightsync",
+			"protocol_version": 1,
+			"server_version": version,
+			"tls_fingerprint_sha256": tlsFingerprint,
+			"tls_minimum_version": "1.2",
+		})
+	})
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if !method(w, r, http.MethodGet) {
 			return
@@ -483,7 +509,7 @@ func runServer() error {
 		MaxHeaderBytes:    1 << 20,
 	}
 	if useTLS {
-		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{serverCertificate}}
 	}
 	log.Printf("NightSync Server %s starting", version)
 	log.Printf("Primary storage: %s", dataDir)
@@ -505,7 +531,7 @@ func runServer() error {
 	}()
 	var serveErr error
 	if useTLS {
-		serveErr = srv.ListenAndServeTLS(*tlsCertFlag, *tlsKeyFlag)
+		serveErr = srv.ListenAndServeTLS("", "")
 	} else {
 		serveErr = srv.ListenAndServe()
 	}

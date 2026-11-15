@@ -74,7 +74,7 @@ public sealed class AdminUsersWindow : Window
 
     private static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(color));
     private static TextBox Field(string hint) => new() { Height = 34, Margin = new Thickness(0, 5, 0, 8), Padding = new Thickness(9), Background = Brush("#0B1422"), Foreground = Brush("#ECF7FF"), BorderBrush = Brush("#29435F"), ToolTip = hint };
-    private static Border Panel() => new() { Background = Brush("#101827"), BorderBrush = Brush("#243B57"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(13), Padding = new Thickness(16) };
+    private static StackPanel Panel() => new() { Margin = new Thickness(0, 8, 0, 0) };
     private static TextBlock Heading(string text) => new() { Text = text, Foreground = Brush("#A48CFF"), FontSize = 12, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 8) };
     private static Button Button(string text) => new() { Content = text, Background = Brush("#69E5FF"), Foreground = Brush("#06111C"), BorderThickness = new Thickness(0), Padding = new Thickness(14, 9, 14, 9), Margin = new Thickness(0, 5, 8, 0), FontWeight = FontWeights.SemiBold };
 
@@ -83,8 +83,8 @@ public sealed class AdminUsersWindow : Window
         _newUsername.IsEnabled = enabled; _role.IsEnabled = enabled; _users.IsEnabled = enabled;
         if (Content is ScrollViewer scroll && scroll.Content is StackPanel root && root.Children.Count >= 3)
         {
-            ((StackPanel)((Border)root.Children[1]).Child).IsEnabled = enabled;
-            ((StackPanel)((Border)root.Children[2]).Child).IsEnabled = enabled;
+            root.Children[1].IsEnabled = enabled;
+            root.Children[2].IsEnabled = enabled;
         }
     }
 

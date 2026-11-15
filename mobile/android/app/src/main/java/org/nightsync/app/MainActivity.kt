@@ -142,6 +142,7 @@ fun NightSyncAuthApp(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var address by remember { mutableStateOf(initialAddress) }
     var qrMessage by remember { mutableStateOf("") }
     val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         val raw = result.contents
@@ -165,7 +166,6 @@ fun NightSyncAuthApp(
             }
         }
     }
-    var address by remember { mutableStateOf(initialAddress) }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }

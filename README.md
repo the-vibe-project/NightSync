@@ -17,6 +17,7 @@ The software may be used, modified, and redistributed under AGPL v3. If you modi
 
 - First-run wizard selects the host storage location, installs the Windows background service, and creates the first owner account.
 - The Windows service is configured for delayed automatic startup before Windows sign-in and restart-on-failure recovery.
+- The Server dashboard includes an administrator-only User Management window to list accounts, create member/admin accounts with generated one-time temporary passwords, and reset passwords.
 - Owner/admin and member accounts have individual private storage roots.
 - File manager supports folder listing/navigation, create folder, upload, download, file deletion, and empty-folder deletion.
 - Uploads are capped at 100 MB in this prototype. Existing files are not silently overwritten.

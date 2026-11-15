@@ -16,6 +16,8 @@ public sealed class ServerAddressPolicyTests
     [InlineData("http://192.0.2.10:8787", "http://192.0.2.10:8787", false)]
     [InlineData("https://user:password@sync.example", "https://sync.example", false)]
     [InlineData("https://sync.example", "https://user:password@sync.example", false)]
+    [InlineData("https://sync.example?next=https://attacker.example", "https://sync.example?next=https://attacker.example", false)]
+    [InlineData("https://sync.example#attacker", "https://sync.example#attacker", false)]
     [InlineData("not a URL", "https://sync.example", false)]
     public void CandidateMustUseTheAuthenticatedOrigin(
         string candidate,

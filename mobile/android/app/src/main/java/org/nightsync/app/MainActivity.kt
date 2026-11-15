@@ -536,7 +536,7 @@ fun NightSyncAuthApp(
                     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("My files", style = MaterialTheme.typography.headlineSmall, color = NightText, fontWeight = FontWeight.SemiBold)
+                                Text(if (isDemoMode) "Explore your cloud" else "My files", style = MaterialTheme.typography.headlineSmall, color = NightText, fontWeight = FontWeight.SemiBold)
                                 Text(if (isDemoMode) "A preview of the NightSync experience" else "Your private space", color = NightMuted, style = MaterialTheme.typography.bodySmall)
                             }
                             Surface(shape = RoundedCornerShape(18.dp), color = NightRaised) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -386,7 +387,10 @@ func runServer() error {
 	backupFlag := flag.String("backup", "", "Configured backup destination (backup jobs are not active in this build)")
 	syncFlag := flag.String("sync", "", "Configured sync destination (sync jobs are not active in this build)")
 	logFileFlag := flag.String("log-file", "", "Optional log file path")
-	addrFlag := flag.String("addr", "127.0.0.1:8787", "HTTP listen address; development builds must remain loopback-only")
+	addrFlag := flag.String("addr", "127.0.0.1:8787", "Listen IP address and port; defaults to localhost only")
+	tlsCertFlag := flag.String("tls-cert", "", "TLS certificate PEM file (required for non-loopback listeners)")
+	tlsKeyFlag := flag.String("tls-key", "", "TLS private key PEM file (required for non-loopback listeners)")
+	allowRemoteFlag := flag.Bool("allow-remote", false, "Explicitly allow a TLS-only listener on one concrete non-loopback interface IP")
 	flag.Parse()
 	dataDir, err = filepath.Abs(*storageFlag)
 	if err != nil {
@@ -394,8 +398,14 @@ func runServer() error {
 	}
 	backupDir = *backupFlag
 	syncDir = *syncFlag
-	if *addrFlag != "127.0.0.1:8787" && *addrFlag != "localhost:8787" {
-		return errors.New("this development build is restricted to localhost; remote/LAN binding is disabled")
+	useTLS, err := validateListenerConfig(*addrFlag, *tlsCertFlag, *tlsKeyFlag, *allowRemoteFlag)
+	if err != nil {
+		return fmt.Errorf("unsafe server listener configuration: %w", err)
+	}
+	if useTLS {
+		if _, err := tls.LoadX509KeyPair(*tlsCertFlag, *tlsKeyFlag); err != nil {
+			return fmt.Errorf("cannot load configured TLS certificate and private key: %w", err)
+		}
 	}
 	if err = os.MkdirAll(dataDir, 0700); err != nil {
 		return fmt.Errorf("cannot create storage folder: %w", err)
@@ -434,7 +444,7 @@ func runServer() error {
 		writeJSON(w, 200, map[string]any{"name": "NightSync Server", "status": "online", "version": version,
 			"time": time.Now().UTC().Format(time.RFC3339), "uptime_seconds": int64(time.Since(startedAt).Seconds()),
 			"process_memory_bytes": m.Sys, "heap_alloc_bytes": m.HeapAlloc, "goroutines": runtime.NumGoroutine(),
-			"go_version": runtime.Version(), "storage": storage, "mode": "local-development",
+			"go_version": runtime.Version(), "storage": storage, "mode": map[bool]string{true: "tls-listener", false: "local-development"}[useTLS],
 			"destinations": map[string]any{"backup_path": backupDir, "sync_path": syncDir,
 				"backup_state": "configured-not-active", "sync_state": "configured-not-active"}})
 	})
@@ -464,22 +474,43 @@ func runServer() error {
 	protected.Handle("/api/v1/admin/server/stop", mux)
 	protected.Handle("/health", mux)
 
-	addr := "127.0.0.1:8787"
-	srv := &http.Server{Addr: addr, Handler: protected, ReadHeaderTimeout: 5 * time.Second}
+	addr := *addrFlag
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           protected,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	if useTLS {
+		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
 	log.Printf("NightSync Server %s starting", version)
 	log.Printf("Primary storage: %s", dataDir)
 	log.Printf("Backup destination (configured only): %s", backupDir)
 	log.Printf("Sync destination (configured only): %s", syncDir)
-	log.Printf("Health: http://%s/health", addr)
-	log.Printf("WARNING: localhost-only development build; do not expose to LAN/internet")
+	scheme := "http"
+	if useTLS {
+		scheme = "https"
+		log.Printf("TLS listener enabled; minimum TLS version: 1.2")
+	} else {
+		log.Printf("WARNING: loopback-only HTTP development mode")
+	}
+	log.Printf("Health: %s://%s/health", scheme, addr)
 	go func() {
 		<-shutdownRequested
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(ctx)
 	}()
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return err
+	var serveErr error
+	if useTLS {
+		serveErr = srv.ListenAndServeTLS(*tlsCertFlag, *tlsKeyFlag)
+	} else {
+		serveErr = srv.ListenAndServe()
+	}
+	if serveErr != nil && serveErr != http.ErrServerClosed {
+		return serveErr
 	}
 	log.Printf("NightSync Server stopped")
 	return nil

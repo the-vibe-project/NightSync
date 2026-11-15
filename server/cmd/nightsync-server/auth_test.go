@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http/httptest"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
@@ -136,5 +137,40 @@ func TestAccountChangesRollBackWhenDatabaseWriteFails(t *testing.T) {
 	member := store.users["member"]
 	if !member.MustChangePassword {
 		t.Fatal("failed reset changed the user's temporary-password flag")
+	}
+}
+
+
+func TestAdminUserListRequiresAdminAndNeverReturnsPasswordHashes(t *testing.T) {
+	previous := auth
+	defer func() { auth = previous }()
+	store, err := newAuthStore(t.TempDir())
+	if err != nil { t.Fatal(err) }
+	if err := store.createFirstAdmin("owner", "A-Strong-Password-123!"); err != nil { t.Fatal(err) }
+	if err := store.create("member", "Member-Strong-Password-1!", "member", true); err != nil { t.Fatal(err) }
+	auth = store
+	_, adminToken, err := store.login("owner", "A-Strong-Password-123!")
+	if err != nil { t.Fatal(err) }
+	_, memberToken, err := store.login("member", "Member-Strong-Password-1!")
+	if err != nil { t.Fatal(err) }
+	mux := http.NewServeMux()
+	authRoutes(mux)
+
+	request := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
+	request.Header.Set("Authorization", "Bearer "+memberToken)
+	denied := httptest.NewRecorder()
+	mux.ServeHTTP(denied, request)
+	if denied.Code != http.StatusForbidden { t.Fatalf("member GET status = %d, want 403", denied.Code) }
+
+	request = httptest.NewRequest("GET", "/api/v1/admin/users", nil)
+	request.Header.Set("Authorization", "Bearer "+adminToken)
+	allowed := httptest.NewRecorder()
+	mux.ServeHTTP(allowed, request)
+	if allowed.Code != http.StatusOK { t.Fatalf("admin GET status = %d, want 200: %s", allowed.Code, allowed.Body.String()) }
+	var payload struct { Users []map[string]any `json:"users"` }
+	if err := json.Unmarshal(allowed.Body.Bytes(), &payload); err != nil { t.Fatal(err) }
+	if len(payload.Users) != 2 { t.Fatalf("listed %d users, want 2", len(payload.Users)) }
+	for _, user := range payload.Users {
+		if _, leaked := user["password_hash"]; leaked { t.Fatal("user listing exposed a password hash") }
 	}
 }

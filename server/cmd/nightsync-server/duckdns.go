@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 )
-
-var duckDNSNamePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$ `)
 
 func normalizeDuckDNSName(raw string) (string, error) {
 	name := strings.TrimSpace(strings.ToLower(raw))
@@ -38,7 +37,7 @@ func updateDuckDNS(ctx context.Context, client *http.Client, endpoint, domain, t
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil { return errors.New("could not create DuckDNS update request") }
 	resp, err := client.Do(req)
-	if err != nil { return fmt.Errorf("DuckDNS update request failed: %w", err) }
+	if err != nil { return errors.New("DuckDNS update request failed; check network access") }
 	defer resp.Body.Close()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 256))
 	if readErr != nil { return errors.New("could not read DuckDNS response") }
@@ -55,10 +54,10 @@ func startDuckDNSUpdater(domain, token string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		if err := updateDuckDNS(ctx, client, "https://www.duckdns.org/update", domain, token); err != nil {
-			logDuckDNSError(err)
+			log.Printf("DuckDNS update failed: %v", err)
 			return
 		}
-		logDuckDNSUpdated(domain)
+		log.Printf("DuckDNS hostname updated: %s.duckdns.org", strings.TrimSuffix(domain, ".duckdns.org"))
 	}
 	update()
 	ticker := time.NewTicker(5 * time.Minute)

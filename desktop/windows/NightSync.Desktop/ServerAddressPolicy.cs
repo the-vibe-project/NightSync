@@ -19,6 +19,12 @@ public static class ServerAddressPolicy
             StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool IsLocalServerAddress(string address) =>
+        TryParse(address, out var uri) &&
+        uri.Scheme == Uri.UriSchemeHttp &&
+        uri.IsLoopback &&
+        uri.Port == 8787;
+
     private static bool TryParse(string value, out Uri uri)
     {
         uri = null!;

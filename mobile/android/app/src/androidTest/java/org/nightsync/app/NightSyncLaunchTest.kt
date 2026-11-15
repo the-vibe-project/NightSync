@@ -22,10 +22,22 @@ class NightSyncLaunchTest {
     @Test
     fun loginScreenLaunchesAndShowsRequiredFields() {
         composeRule.onNodeWithText("NIGHTSYNC").assertIsDisplayed()
-        composeRule.onNodeWithText("Welcome back").assertIsDisplayed()
+        composeRule.onNodeWithText("Connect to your server").assertIsDisplayed()
+        composeRule.onNodeWithText("Explore demo workspace").assertIsDisplayed()
         composeRule.onNodeWithText("Server address").assertIsDisplayed()
         composeRule.onNodeWithText("User ID").assertIsDisplayed()
         composeRule.onNodeWithText("Password").assertIsDisplayed()
+    }
+
+    @Test
+    fun demoWorkspaceOpensWithoutServerAndShowsSampleContent() {
+        composeRule.onNodeWithText("Explore demo workspace").performClick()
+        composeRule.onNodeWithText("Explore your cloud").assertIsDisplayed()
+        composeRule.onNodeWithText("SAMPLE DATA").assertIsDisplayed()
+        composeRule.onNodeWithText("Welcome.pdf").assertIsDisplayed()
+        composeRule.onNodeWithText("Documents").performClick()
+        composeRule.onNodeWithText("Meeting-notes.docx").assertIsDisplayed()
+        composeRule.onNodeWithText("Sample content only. Connect a server to manage your own files.").assertIsDisplayed()
     }
 
     @Test

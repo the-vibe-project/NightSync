@@ -81,10 +81,10 @@ public sealed class AdminUsersWindow : Window
     private void SetManagementEnabled(bool enabled)
     {
         _newUsername.IsEnabled = enabled; _role.IsEnabled = enabled; _users.IsEnabled = enabled;
-        if (Content is ScrollViewer scroll && scroll.Content is StackPanel root && root.Children.Count >= 3)
+        if (Content is ScrollViewer scroll && scroll.Content is StackPanel root && root.Children.Count >= 4)
         {
-            root.Children[1].IsEnabled = enabled;
             root.Children[2].IsEnabled = enabled;
+            root.Children[3].IsEnabled = enabled;
         }
     }
 

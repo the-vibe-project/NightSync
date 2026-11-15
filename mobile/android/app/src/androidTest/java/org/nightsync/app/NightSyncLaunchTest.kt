@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -52,9 +53,10 @@ class NightSyncLaunchTest {
         composeRule.onNodeWithText("WHAT TO BACK UP").assertIsDisplayed()
         composeRule.onNodeWithText("Photos").assertIsDisplayed()
         composeRule.onNodeWithText("Videos").assertIsDisplayed()
-        composeRule.onNodeWithText("Wi-Fi + mobile data").performClick()
-        composeRule.onNodeWithText("Simulate backup").performClick()
-        composeRule.onNodeWithText("Simulation complete · 3 categories · Wi-Fi + mobile data · Daily. No files were read or transferred.").assertIsDisplayed()
+        composeRule.onNodeWithText("Wi-Fi + mobile data").performScrollTo().performClick()
+        composeRule.onNodeWithText("Simulate backup").performScrollTo().performClick()
+        val result = composeRule.onNodeWithText("Simulation complete · 3 categories · Wi-Fi + mobile data · Daily. No files were read or transferred.")
+        result.performScrollTo().assertIsDisplayed()
     }
 
     @Test

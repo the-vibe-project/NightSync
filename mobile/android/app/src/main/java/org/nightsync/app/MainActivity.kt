@@ -157,6 +157,16 @@ fun NightSyncAuthApp(
     }
     var editingTimeIndex by remember { mutableIntStateOf(-1) }
     var scheduleSaved by remember { mutableStateOf(true) }
+    var backupPhotos by remember { mutableStateOf(true) }
+    var backupVideos by remember { mutableStateOf(true) }
+    var backupDocuments by remember { mutableStateOf(true) }
+    var backupDownloads by remember { mutableStateOf(false) }
+    var backupAudio by remember { mutableStateOf(false) }
+    var backupNetwork by remember { mutableStateOf("Wi-Fi only") }
+    var backupFrequency by remember { mutableStateOf("Daily") }
+    var backupChargingOnly by remember { mutableStateOf(true) }
+    var demoBackupCount by remember { mutableIntStateOf(0) }
+    var backupMessage by remember { mutableStateOf("Your backup settings are ready to preview.") }
 
     var currentFolder by remember { mutableStateOf("") }
     var cloudItems by remember { mutableStateOf<List<CloudItem>>(emptyList()) }
@@ -414,10 +424,22 @@ fun NightSyncAuthApp(
                 if (token != null && !mustChange) {
                     NavigationBar(containerColor = NightSurface) {
                         NavigationBarItem(
+                            selected = activeTab == "overview",
+                            onClick = { activeTab = "overview" },
+                            icon = { Icon(Icons.Outlined.CloudQueue, contentDescription = null) },
+                            label = { Text("Overview") }
+                        )
+                        NavigationBarItem(
                             selected = activeTab == "files",
                             onClick = { activeTab = "files"; refreshFiles() },
                             icon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
-                            label = { Text("My files") }
+                            label = { Text("Files") }
+                        )
+                        NavigationBarItem(
+                            selected = activeTab == "backup",
+                            onClick = { activeTab = "backup" },
+                            icon = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
+                            label = { Text("Backup") }
                         )
                         NavigationBarItem(
                             selected = activeTab == "schedule",
@@ -491,7 +513,7 @@ fun NightSyncAuthApp(
                             username = "Guest"
                             mustChange = false
                             currentFolder = ""
-                            activeTab = "files"
+                            activeTab = "overview"
                             status = "Exploring the sample workspace. No account or server required."
                             refreshFiles()
                         }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp),
@@ -530,6 +552,121 @@ fun NightSyncAuthApp(
                                 },
                                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)
                             ) { Text("Update password") }
+                        }
+                    }
+                } else if (activeTab == "overview") {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(if (isDemoMode) "Your server at a glance" else "Your workspace", color = NightText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                        if (isDemoMode) {
+                            PremiumCard {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(shape = RoundedCornerShape(50), color = Color(0xFF123C3A)) {
+                                        Text("ONLINE · DEMO", color = Color(0xFF7DE8C2), modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp), style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    Text("SIMULATED", color = NightViolet, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
+                                Text("NightSync Home", color = NightText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                                Text("Demo server · 192.168.1.20 · Version 0.1.0-preview", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                                HorizontalDivider(color = Color(0xFF24364B))
+                                Text("Server status", color = NightMuted, style = MaterialTheme.typography.labelSmall)
+                                Text("Healthy · Last checked just now · 18 ms response", color = NightText)
+                                Text("Uptime 12 days, 4 hours · 2 devices connected", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                            }
+                            PremiumCard {
+                                Text("STORAGE OVERVIEW", color = NightCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.Bottom) {
+                                    Text("1.2 TB", color = NightText, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                                    Text(" used of 2 TB", color = NightMuted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 5.dp))
+                                }
+                                LinearProgressIndicator(progress = { 0.60f }, modifier = Modifier.fillMaxWidth(), color = NightCyan, trackColor = NightRaised)
+                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("60% used", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                                    Text("800 GB free", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            PremiumCard {
+                                Text("BACKUP SNAPSHOT", color = NightCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text(if (demoBackupCount == 0) "No demo backup run yet" else "Demo backup #$demoBackupCount completed", color = NightText, style = MaterialTheme.typography.titleMedium)
+                                Text(if (demoBackupCount == 0) "Explore backup settings and run a safe simulation." else "Last simulated run: just now · 248 files · 1.8 GB", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                                Button(onClick = { activeTab = "backup" }, modifier = Modifier.fillMaxWidth()) { Text("Configure backup") }
+                            }
+                            PremiumCard {
+                                Text("QUICK ACCESS", color = NightCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                OutlinedButton(onClick = { activeTab = "files"; currentFolder = ""; refreshFiles() }, modifier = Modifier.fillMaxWidth()) { Text("Browse sample files") }
+                                OutlinedButton(onClick = { activeTab = "schedule" }, modifier = Modifier.fillMaxWidth()) { Text("View sync schedule") }
+                            }
+                        } else {
+                            PremiumCard {
+                                Text("Server status is available when connected to a NightSync server.", color = NightText)
+                                Text("This prototype currently exposes file browsing and local schedule preferences. Live health metrics and backup jobs are not yet implemented in the Android client.", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                } else if (activeTab == "backup") {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Backup settings", color = NightText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Choose what NightSync should protect", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Surface(color = NightRaised, shape = RoundedCornerShape(50)) {
+                                Text(if (isDemoMode) "PREVIEW" else "PLANNED", color = NightViolet, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        if (isDemoMode) {
+                            PremiumCard {
+                                Text("WHAT TO BACK UP", color = NightCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text("Choose the content categories", color = NightText, style = MaterialTheme.typography.titleMedium)
+                                CheckboxRow("Photos", "Camera and gallery images", backupPhotos) { backupPhotos = it }
+                                CheckboxRow("Videos", "Recorded and downloaded videos", backupVideos) { backupVideos = it }
+                                CheckboxRow("Documents", "PDFs, office files and text", backupDocuments) { backupDocuments = it }
+                                CheckboxRow("Downloads", "Files saved in Downloads", backupDownloads) { backupDownloads = it }
+                                CheckboxRow("Audio", "Music, recordings and audio files", backupAudio) { backupAudio = it }
+                            }
+                            PremiumCard {
+                                Text("BACKUP NETWORK", color = NightCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text("When may backups use mobile data?", color = NightText, style = MaterialTheme.typography.titleMedium)
+                                listOf("Wi-Fi only", "Wi-Fi + mobile data", "Mobile data only").forEach { option ->
+                                    Row(Modifier.fillMaxWidth().clickable { backupNetwork = option }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = backupNetwork == option, onClick = { backupNetwork = option }, colors = RadioButtonDefaults.colors(selectedColor = NightCyan))
+                                        Column(Modifier.padding(start = 8.dp)) {
+                                            Text(option, color = NightText)
+                                            Text(when(option) {
+                                                "Wi-Fi only" -> "Recommended · avoids cellular usage"
+                                                "Wi-Fi + mobile data" -> "Use cellular when Wi-Fi is unavailable"
+                                                else -> "Back up over cellular networks"
+                                            }, color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                                HorizontalDivider(color = Color(0xFF24364B))
+                                CheckboxRow("Only while charging", "Pause backup while running on battery", backupChargingOnly) { backupChargingOnly = it }
+                            }
+                            PremiumCard {
+                                Text("BACKUP FREQUENCY", color = NightCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                listOf("Daily", "Weekly", "Manual").forEach { option ->
+                                    Row(Modifier.fillMaxWidth().clickable { backupFrequency = option }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = backupFrequency == option, onClick = { backupFrequency = option }, colors = RadioButtonDefaults.colors(selectedColor = NightCyan))
+                                        Text(option, color = NightText, modifier = Modifier.padding(start = 8.dp))
+                                    }
+                                }
+                                Text("Estimated selection: 2.4 GB · Destination: NightSync Home · Retention: 30 days", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Button(onClick = {
+                                val selected = listOf(backupPhotos, backupVideos, backupDocuments, backupDownloads, backupAudio).count { it }
+                                if (selected > 0) {
+                                    demoBackupCount += 1
+                                    backupMessage = "Simulation complete · $selected categories · $backupNetwork · $backupFrequency. No files were read or transferred."
+                                } else backupMessage = "Choose at least one category before previewing a backup."
+                            }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("Simulate backup") }
+                            Text(backupMessage, color = NightCyan, style = MaterialTheme.typography.bodySmall)
+                            Text("DEMO ONLY: these controls are illustrative. No device content is accessed, no network is used, and no backup is created.", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            PremiumCard {
+                                Text("Backup is not available yet", color = NightText, style = MaterialTheme.typography.titleMedium)
+                                Text("The current NightSync repository does not yet implement backup or restore jobs. These controls are shown in demo mode as a product preview only; this signed-in screen does not start a simulated or real backup.", color = NightMuted, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 } else if (activeTab == "files") {
@@ -699,6 +836,18 @@ fun NightSyncAuthApp(
             },
             containerColor = NightSurface
         )
+    }
+}
+
+ 
+@Composable
+private fun CheckboxRow(title: String, description: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange, colors = CheckboxDefaults.colors(checkedColor = NightCyan))
+        Column(Modifier.padding(start = 8.dp)) {
+            Text(title, color = NightText)
+            Text(description, color = NightMuted, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

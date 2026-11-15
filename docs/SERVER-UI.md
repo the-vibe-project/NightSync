@@ -40,3 +40,8 @@ Changing the main storage location does **not** migrate existing user files or t
 - Upload limit is 100 MB; existing file names cannot be overwritten by upload.
 - The service currently uses LocalSystem and has not undergone a security review.
 - This is a development prototype, not a public production release.
+
+
+## Administrator account management
+
+The dashboard's **Manage users** window authenticates an administrator against the local server, lists existing accounts, creates member/admin accounts with a generated temporary password, and resets selected users' passwords. The password is shown once in a confirmation dialog; share it with the user over a private channel. The user must change it after first sign-in.

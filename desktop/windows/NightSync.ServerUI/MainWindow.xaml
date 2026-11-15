@@ -126,7 +126,8 @@
             <WrapPanel Margin="0,12,0,0">
               <Button Content="Enable background service" Padding="14,8" Margin="0,0,8,7" Click="InstallService_Click"/>
               <Button Content="Remove service" Padding="14,8" Background="#29364A" Foreground="#D7E8F9" Margin="0,0,8,7" Click="RemoveService_Click"/>
-              <Button Content="Setup wizard" Padding="14,8" Background="#263049" Foreground="#D8D2FF" Margin="0,0,0,7" Click="OpenWizard_Click"/>
+              <Button Content="Setup wizard" Padding="14,8" Background="#263049" Foreground="#D8D2FF" Margin="0,0,8,7" Click="OpenWizard_Click"/>
+              <Button Content="Manage users" Padding="14,8" Background="#263049" Foreground="#D8D2FF" Margin="0,0,0,7" Click="ManageUsers_Click"/>
             </WrapPanel>
             <TextBlock x:Name="ControlMessage" Foreground="#69E5FF" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
           </StackPanel>

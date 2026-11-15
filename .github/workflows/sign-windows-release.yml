@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       artifact_name:
-        description: "Artifact name from that run (for example, NightSync-Windows)"
+        description: "Windows artifact from the successful main-branch build"
         required: true
         default: "NightSync-Windows"
         type: string
@@ -19,11 +19,15 @@ permissions:
 
 jobs:
   sign:
+    if: github.ref == 'refs/heads/main'
     name: Authenticode sign and verify
+    environment: windows-signing
     runs-on: windows-latest
     steps:
-      - name: Check out signing script
+      - name: Check out signing script from main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Check signing secrets
         shell: pwsh
@@ -33,21 +37,39 @@ jobs:
         run: |
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_PFX_BASE64) -or
               [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_PFX_PASSWORD)) {
-            throw "Configure WINDOWS_SIGNING_PFX_BASE64 and WINDOWS_SIGNING_PFX_PASSWORD in repository Actions secrets before signing."
+            throw "Configure WINDOWS_SIGNING_PFX_BASE64 and WINDOWS_SIGNING_PFX_PASSWORD as secrets in the protected windows-signing environment."
           }
 
-      - name: Verify source workflow run
+      - name: Verify source workflow run and artifact
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_ARTIFACT_NAME: ${{ inputs.artifact_name }}
         run: |
-          $sourceRun = gh run view $env:SOURCE_RUN_ID --repo $env:GITHUB_REPOSITORY --json status,conclusion,headBranch | ConvertFrom-Json
+          if ($env:SOURCE_RUN_ID -notmatch '^\d+$') {
+            throw "Source run ID must contain digits only."
+          }
+          $allowedArtifacts = @("NightSync-Windows", "NightSync-Server")
+          if ($allowedArtifacts -notcontains $env:SOURCE_ARTIFACT_NAME) {
+            throw "Only NightSync-Windows or NightSync-Server artifacts may be signed."
+          }
+
+          $runPath = "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:SOURCE_RUN_ID"
+          $sourceRun = gh api $runPath | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not retrieve the source workflow run."
+          }
           if ($sourceRun.status -ne "completed" -or $sourceRun.conclusion -ne "success") {
             throw "Only artifacts from a completed, successful workflow run may be signed."
           }
-          if ($sourceRun.headBranch -ne "main") {
-            throw "For release-key safety, only artifacts built from this repository's main branch may be signed."
+          if ($sourceRun.head_branch -ne "main" -or
+              $sourceRun.head_repository.full_name -ne $env:GITHUB_REPOSITORY) {
+            throw "Only builds from this repository's main branch may be signed."
+          }
+          if ($sourceRun.path -ne ".github/workflows/build.yml" -or
+              @("push", "workflow_dispatch") -notcontains $sourceRun.event) {
+            throw "The source must be a main-branch NightSync development build triggered by push or workflow_dispatch."
           }
 
       - name: Download unsigned Windows artifact

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"os"
 	"path/filepath"
 	"sync"
@@ -137,4 +139,35 @@ func TestAccountChangesRollBackWhenDatabaseWriteFails(t *testing.T) {
 	if !member.MustChangePassword {
 		t.Fatal("failed reset changed the user's temporary-password flag")
 	}
+}
+
+
+func TestAdminCanListUsersWithoutExposingPasswordHashes(t *testing.T) {
+	store, err := newAuthStore(t.TempDir())
+	if err != nil { t.Fatal(err) }
+	if err := store.createFirstAdmin("owner", "A-Strong-Password-123!"); err != nil { t.Fatal(err) }
+	if err := store.create("member", "Member-Strong-Password-1!", "member", true); err != nil { t.Fatal(err) }
+	previous := auth
+	auth = store
+	defer func() { auth = previous }()
+	mux := http.NewServeMux()
+	authRoutes(mux)
+
+	_, adminToken, err := store.login("owner", "A-Strong-Password-123!")
+	if err != nil { t.Fatal(err) }
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
+	request.Header.Set("Authorization", "Bearer "+adminToken)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusOK { t.Fatalf("admin list returned %d: %s", response.Code, response.Body.String()) }
+	if !strings.Contains(response.Body.String(), "\"username\":\"member\"") { t.Fatalf("member missing from list: %s", response.Body.String()) }
+	if strings.Contains(response.Body.String(), "password_hash") { t.Fatal("user listing exposed password hashes") }
+
+	_, memberToken, err := store.login("member", "Member-Strong-Password-1!")
+	if err != nil { t.Fatal(err) }
+	request = httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
+	request.Header.Set("Authorization", "Bearer "+memberToken)
+	response = httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden { t.Fatalf("member list request returned %d, want 403", response.Code) }
 }

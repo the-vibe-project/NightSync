@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
-using System.Windows.Media;
+using System.Windows.Media;\nusing System.Windows.Media.Imaging;\nusing QRCoder;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     {
         public string MainPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "NightSync Storage");
         public string BackupPath { get; set; } = "";
-        public string SyncPath { get; set; } = "";
+        public string SyncPath { get; set; } = "";\n        public string ServerAddress { get; set; } = "";
         public bool SetupComplete { get; set; }
     }
 
@@ -67,7 +67,7 @@ public partial class MainWindow : Window
         }
         catch { _config = new Config(); }
 
-        MainBox.Text = _config.MainPath;
+        MainBox.Text = _config.MainPath;\n        PairAddressBox.Text = _config.ServerAddress;
         BackupBox.Text = _config.BackupPath;
         SyncBox.Text = _config.SyncPath;
         LoadLog();
@@ -75,7 +75,7 @@ public partial class MainWindow : Window
 
     private void SaveConfig()
     {
-        _config.MainPath = MainBox.Text.Trim();
+        _config.MainPath = MainBox.Text.Trim();\n        _config.ServerAddress = PairAddressBox.Text.Trim();
         _config.BackupPath = BackupBox.Text.Trim();
         _config.SyncPath = SyncBox.Text.Trim();
 
@@ -419,6 +419,52 @@ public partial class MainWindow : Window
             ControlMessage.Text = "Administrator approval was cancelled. NightSync is unchanged.";
         }
         catch (Exception ex) { ControlMessage.Text = "Could not stop NightSync: " + ex.Message; }
+    }
+
+    private void GenerateQr_Click(object sender, RoutedEventArgs e)
+    {
+        PairQrImage.Source = null;
+        PairQrImage.Visibility = Visibility.Collapsed;
+        var address = PairAddressBox.Text.Trim().TrimEnd('/');
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps ||
+            string.IsNullOrWhiteSpace(uri.Host) ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            !string.IsNullOrEmpty(uri.Query) ||
+            !string.IsNullOrEmpty(uri.Fragment))
+        {
+            PairQrMessage.Text = "Enter a valid HTTPS base address without credentials, query, or fragment.";
+            return;
+        }
+
+        try
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                type = "nightsync-connect",
+                version = 1,
+                url = address
+            });
+            using var generator = new QRCodeGenerator();
+            using var data = generator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
+            var png = new PngByteQRCode(data).GetGraphic(8);
+            var bitmap = new BitmapImage();
+            using (var stream = new MemoryStream(png))
+            {
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = stream;
+                bitmap.EndInit();
+                bitmap.Freeze();
+            }
+            PairQrImage.Source = bitmap;
+            PairQrImage.Visibility = Visibility.Visible;
+            PairQrMessage.Text = "QR generated. Scan it from NightSync Android → Scan server QR code.";
+        }
+        catch (Exception ex)
+        {
+            PairQrMessage.Text = "Could not generate QR: " + ex.Message;
+        }
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e) => await StartServerAsync();

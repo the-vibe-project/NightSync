@@ -477,15 +477,28 @@ public partial class MainWindow : Window
 
     private async void OpenWizard_Click(object sender, RoutedEventArgs e) => await RunSetupWizardAsync();
 
-    private void ManageUsers_Click(object sender, RoutedEventArgs e)
+    private async void ManageUsers_Click(object sender, RoutedEventArgs e)
     {
-        if (!IsOnlineAsync().GetAwaiter().GetResult())
+        try
         {
-            MessageBox.Show("Start the NightSync background server before managing accounts.", "NightSync user management", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
+            ControlMessage.Text = "Checking NightSync server…";
+            var online = await IsOnlineAsync();
+            if (!online)
+            {
+                ControlMessage.Text = "Start the NightSync background server before managing accounts.";
+                MessageBox.Show(ControlMessage.Text, "NightSync user management", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var window = new AdminUsersWindow { Owner = this };
+            window.ShowDialog();
+            ControlMessage.Text = "User management closed.";
         }
-        var window = new AdminUsersWindow { Owner = this };
-        window.ShowDialog();
+        catch (Exception ex)
+        {
+            ControlMessage.Text = "Could not open user management: " + ex.Message;
+            MessageBox.Show(ControlMessage.Text, "NightSync user management", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

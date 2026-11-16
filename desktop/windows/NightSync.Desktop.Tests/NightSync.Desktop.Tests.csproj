@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../NightSync.Desktop/ServerAddressPolicy.cs" Link="ServerAddressPolicy.cs" />
+    <Compile Include="../NightSync.ServerUI/ConnectionQrPayload.cs" Link="ConnectionQrPayload.cs" />
   </ItemGroup>
 </Project>

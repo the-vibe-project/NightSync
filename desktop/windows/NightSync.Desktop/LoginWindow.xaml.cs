@@ -50,9 +50,11 @@ public partial class LoginWindow : Window
 
     private bool ValidAddress()
     {
-        if(!Uri.TryCreate(BaseAddress,UriKind.Absolute,out var uri) ||
-           !(uri.Scheme=="https" || (uri.Scheme=="http" && uri.IsLoopback)))
-        {MessageText.Text="Use HTTPS remotely. HTTP is allowed only for localhost testing.";return false;}
+        if (!ServerAddressPolicy.IsSameAuthenticatedOrigin(BaseAddress, BaseAddress))
+        {
+            MessageText.Text = "Use HTTPS remotely, or loopback HTTP for local testing. Do not include credentials, query strings or fragments.";
+            return false;
+        }
         return true;
     }
 }

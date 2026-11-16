@@ -72,6 +72,32 @@ class NightSyncLaunchTest {
     }
 
     @Test
+    fun connectionQrPayloadAcceptsOnlyVersionedHttpsBaseAddresses() {
+        val valid = parseConnectionQrPayload(
+            """{"type":"nightsync-connect","version":1,"url":"https://sync.example:8443"}"""
+        )
+        assertEquals("https://sync.example:8443", valid)
+
+        val invalidPayloads = listOf(
+            """{"type":"wrong","version":1,"url":"https://sync.example"}""",
+            """{"type":"nightsync-connect","version":2,"url":"https://sync.example"}""",
+            """{"type":"nightsync-connect","version":1,"url":"http://sync.example"}""",
+            """{"type":"nightsync-connect","version":1,"url":"https://user:pass@sync.example"}""",
+            """{"type":"nightsync-connect","version":1,"url":"https://sync.example?next=attacker"}""",
+            """{"type":"nightsync-connect","version":1,"url":"https://sync.example#fragment"}"""
+        )
+        invalidPayloads.forEach { payload ->
+            var rejected = false
+            try {
+                parseConnectionQrPayload(payload)
+            } catch (_: Exception) {
+                rejected = true
+            }
+            assertTrue("Expected QR payload to be rejected: $payload", rejected)
+        }
+    }
+
+    @Test
     fun deceptiveLoopbackPrefixIsRejectedBeforeCredentialsAreSent() {
         composeRule.onNodeWithText("Server address").performTextClearance()
         composeRule.onNodeWithText("Server address").performTextInput("http://127.0.0.1.attacker.example:8787")

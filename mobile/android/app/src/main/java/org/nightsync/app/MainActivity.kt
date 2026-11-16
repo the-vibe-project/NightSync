@@ -40,11 +40,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.net.URLEncoder
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 
 private val NightInk = Color(0xFF070B14)
 private val NightSurface = Color(0xFF101827)
@@ -91,6 +93,25 @@ private data class CloudItem(
 private data class ApiResult(val code: Int, val body: JSONObject)
 
 private fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
+
+private fun isAllowedServerAddress(value: String): Boolean {
+    val uri = try {
+        URI(value.trim())
+    } catch (_: Exception) {
+        return false
+    }
+    if (!uri.isAbsolute || uri.rawUserInfo != null) return false
+
+    val host = uri.host?.lowercase(Locale.ROOT) ?: return false
+    val port = uri.port
+    if (port != -1 && port !in 1..65535) return false
+
+    return when (uri.scheme?.lowercase(Locale.ROOT)) {
+        "https" -> true
+        "http" -> host in setOf("127.0.0.1", "localhost", "10.0.2.2")
+        else -> false
+    }
+}
 
 private fun requestJson(
     address: String,
@@ -514,8 +535,7 @@ fun NightSyncAuthApp(
                                 enabled = !busy,
                                 onClick = {
                                     val a = address.trim().trimEnd('/')
-                                    if (!(a.startsWith("https://") || a.startsWith("http://127.0.0.1") ||
-                                                a.startsWith("http://localhost") || a.startsWith("http://10.0.2.2"))) {
+                                    if (!isAllowedServerAddress(a)) {
                                         status = "Use HTTPS except for local emulator testing."
                                     } else {
                                         onSaveAddress(a)

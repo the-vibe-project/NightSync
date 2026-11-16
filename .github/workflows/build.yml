@@ -71,6 +71,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Test Windows client server-origin policy
+        run: dotnet test desktop/windows/NightSync.Desktop.Tests/NightSync.Desktop.Tests.csproj -c Release
       - name: Publish Windows client
         run: dotnet publish desktop/windows/NightSync.Desktop/NightSync.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/NightSync-Windows
       - name: Smoke test Windows client launch

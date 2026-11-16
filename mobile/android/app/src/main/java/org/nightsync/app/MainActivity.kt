@@ -100,7 +100,7 @@ private fun isAllowedServerAddress(value: String): Boolean {
     } catch (_: Exception) {
         return false
     }
-    if (!uri.isAbsolute || uri.rawUserInfo != null) return false
+    if (!uri.isAbsolute || uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null) return false
 
     val host = uri.host?.lowercase(Locale.ROOT) ?: return false
     val port = uri.port
@@ -111,6 +111,24 @@ private fun isAllowedServerAddress(value: String): Boolean {
         "http" -> host in setOf("127.0.0.1", "localhost", "10.0.2.2")
         else -> false
     }
+}
+
+internal fun parseConnectionQrPayload(raw: String): String {
+    val payload = JSONObject(raw)
+    val scannedUrl = payload.optString("url").trim().trimEnd('/')
+    val validType = payload.optString("type") == "nightsync-connect"
+    val validVersion = payload.optInt("version") == 1
+    val uri = try {
+        URI(scannedUrl)
+    } catch (_: Exception) {
+        throw IllegalArgumentException("This is not a valid secure NightSync connection QR code.")
+    }
+    if (!validType || !validVersion ||
+        uri.scheme?.lowercase(Locale.ROOT) != "https" ||
+        !isAllowedServerAddress(scannedUrl)) {
+        throw IllegalArgumentException("This is not a valid secure NightSync connection QR code.")
+    }
+    return scannedUrl
 }
 
 private fun requestJson(
@@ -171,17 +189,10 @@ fun NightSyncAuthApp(
             qrMessage = "QR scan cancelled."
         } else {
             try {
-                val payload = JSONObject(raw)
-                val scannedUrl = payload.optString("url").trim().trimEnd('/')
-                val validType = payload.optString("type") == "nightsync-connect"
-                val validVersion = payload.optInt("version") == 1
-                val parsed = URL(scannedUrl)
-                if (!validType || !validVersion || parsed.protocol != "https" || parsed.host.isBlank()) {
-                    throw IllegalArgumentException("This is not a valid secure NightSync connection QR code.")
-                }
+                val scannedUrl = parseConnectionQrPayload(raw)
                 address = scannedUrl
                 onSaveAddress(scannedUrl)
-                qrMessage = "Secure server address added. Sign in with your NightSync account."
+                qrMessage = "Server address added. Sign in with your NightSync account."
             } catch (e: Exception) {
                 qrMessage = e.message ?: "Could not read this NightSync QR code."
             }

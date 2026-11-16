@@ -1,8 +1,9 @@
 package org.nightsync.app
 
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
@@ -16,6 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+@OptIn(ExperimentalTestApi::class)
 class NightSyncLaunchTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
@@ -70,6 +72,16 @@ class NightSyncLaunchTest {
     }
 
     @Test
+    fun deceptiveLoopbackPrefixIsRejectedBeforeCredentialsAreSent() {
+        composeRule.onNodeWithText("Server address").performTextClearance()
+        composeRule.onNodeWithText("Server address").performTextInput("http://127.0.0.1.attacker.example:8787")
+        composeRule.onNodeWithText("User ID").performTextInput("testuser")
+        composeRule.onNodeWithText("Password").performTextInput("SomeStrongPassword123!")
+        composeRule.onNodeWithText("Connect").performClick()
+        composeRule.onNodeWithText("Use HTTPS except for local emulator testing.").assertIsDisplayed()
+    }
+
+    @Test
     fun memberCanSignInBrowseFilesAndCreateFolder() {
         val server = okhttp3.mockwebserver.MockWebServer()
         server.start()
@@ -91,9 +103,7 @@ class NightSyncLaunchTest {
             composeRule.onNodeWithText("Password").performTextInput("StrongTestPassword123!")
             composeRule.onNodeWithText("Connect").performClick()
 
-            composeRule.waitUntil(15_000) {
-                composeRule.onAllNodesWithText("hello.txt").fetchSemanticsNodes().isNotEmpty()
-            }
+            composeRule.waitUntilAtLeastOneExists(hasText("hello.txt"), 15_000)
             composeRule.onNodeWithText("Documents").assertIsDisplayed()
             composeRule.onNodeWithText("hello.txt").assertIsDisplayed()
 
@@ -110,9 +120,7 @@ class NightSyncLaunchTest {
 
             composeRule.onNodeWithText("New folder name").performTextInput("Trips")
             composeRule.onNodeWithText("Create").performClick()
-            composeRule.waitUntil(15_000) {
-                composeRule.onAllNodesWithText("Trips").fetchSemanticsNodes().isNotEmpty()
-            }
+            composeRule.waitUntilAtLeastOneExists(hasText("Trips"), 15_000)
             composeRule.onNodeWithText("Trips").assertIsDisplayed()
 
             val loginRequest = server.takeRequest()

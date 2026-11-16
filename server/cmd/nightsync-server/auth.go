@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sort"
 	"sync"
 	"time"
 
@@ -345,7 +346,9 @@ func authRoutes(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"changed": true, "message": "Password changed. Sign in again."})
 	})
 	mux.HandleFunc("/api/v1/admin/users", func(w http.ResponseWriter, r *http.Request) {
-		if !method(w, r, http.MethodPost) {
+		if r.Method != http.MethodGet && r.Method != http.MethodPost {
+			w.Header().Set("Allow", "GET, POST")
+			writeJSON(w, http.StatusMethodNotAllowed, apiError{Error: "method not allowed"})
 			return
 		}
 		u, ok := auth.requestUser(r)
@@ -355,6 +358,22 @@ func authRoutes(mux *http.ServeMux) {
 		}
 		if u.Role != "admin" {
 			writeJSON(w, 403, apiError{Error: "admin permission required"})
+			return
+		}
+		if r.Method == http.MethodGet {
+			auth.mu.Lock()
+			users := make([]map[string]any, 0, len(auth.users))
+			for _, record := range auth.users {
+				users = append(users, map[string]any{
+					"username": record.Username, "role": record.Role,
+					"must_change_password": record.MustChangePassword, "created_at": record.CreatedAt,
+				})
+			}
+			auth.mu.Unlock()
+			sort.Slice(users, func(i, j int) bool {
+				return strings.ToLower(users[i]["username"].(string)) < strings.ToLower(users[j]["username"].(string))
+			})
+			writeJSON(w, http.StatusOK, map[string]any{"users": users})
 			return
 		}
 		var q struct {
@@ -388,7 +407,16 @@ func authRoutes(mux *http.ServeMux) {
 			writeJSON(w, 403, apiError{Error: "admin permission required"})
 			return
 		}
-		name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/admin/users/"), "/reset")
+		const prefix = "/api/v1/admin/users/"
+		if !strings.HasPrefix(r.URL.Path, prefix) || !strings.HasSuffix(r.URL.Path, "/reset") {
+			http.NotFound(w, r)
+			return
+		}
+		name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, prefix), "/reset")
+		if name == "" || strings.Contains(name, "/") {
+			http.NotFound(w, r)
+			return
+		}
 		p, e := auth.reset(name)
 		if e != nil {
 			writeJSON(w, 404, apiError{Error: e.Error()})

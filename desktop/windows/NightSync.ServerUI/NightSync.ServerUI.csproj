@@ -16,6 +16,7 @@
     <RootNamespace>NightSync.ServerUI</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.6.0" />
     <EmbeddedResource Include="Resources\NightSync.Server.Engine.exe"
                       LogicalName="NightSync.Server.Engine.exe"
                       Condition="Exists('Resources\NightSync.Server.Engine.exe')" />

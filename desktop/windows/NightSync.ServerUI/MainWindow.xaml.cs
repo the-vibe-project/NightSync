@@ -1,11 +1,14 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using QRCoder;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -21,6 +24,7 @@ public partial class MainWindow : Window
         public string MainPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "NightSync Storage");
         public string BackupPath { get; set; } = "";
         public string SyncPath { get; set; } = "";
+        public string ServerAddress { get; set; } = "";
         public bool SetupComplete { get; set; }
     }
 
@@ -36,6 +40,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(5) };
     private Config _config = new();
     private bool _wizardRunning;
+    private string? _adminToken;
 
     public MainWindow()
     {
@@ -68,6 +73,7 @@ public partial class MainWindow : Window
         catch { _config = new Config(); }
 
         MainBox.Text = _config.MainPath;
+        PairAddressBox.Text = _config.ServerAddress;
         BackupBox.Text = _config.BackupPath;
         SyncBox.Text = _config.SyncPath;
         LoadLog();
@@ -76,6 +82,7 @@ public partial class MainWindow : Window
     private void SaveConfig()
     {
         _config.MainPath = MainBox.Text.Trim();
+        _config.ServerAddress = PairAddressBox.Text.Trim();
         _config.BackupPath = BackupBox.Text.Trim();
         _config.SyncPath = SyncBox.Text.Trim();
 
@@ -419,6 +426,145 @@ public partial class MainWindow : Window
             ControlMessage.Text = "Administrator approval was cancelled. NightSync is unchanged.";
         }
         catch (Exception ex) { ControlMessage.Text = "Could not stop NightSync: " + ex.Message; }
+    }
+
+    private void GenerateQr_Click(object sender, RoutedEventArgs e)
+    {
+        PairQrImage.Source = null;
+        PairQrImage.Visibility = Visibility.Collapsed;
+        var address = PairAddressBox.Text.Trim().TrimEnd('/');
+        string payload;
+        try
+        {
+            payload = ConnectionQrPayload.Create(address);
+        }
+        catch (ArgumentException ex)
+        {
+            PairQrMessage.Text = ex.Message;
+            return;
+        }
+
+        try
+        {
+            using var generator = new QRCodeGenerator();
+            using var data = generator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
+            var png = new PngByteQRCode(data).GetGraphic(8);
+            var bitmap = new BitmapImage();
+            using (var stream = new MemoryStream(png))
+            {
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = stream;
+                bitmap.EndInit();
+                bitmap.Freeze();
+            }
+            PairQrImage.Source = bitmap;
+            PairQrImage.Visibility = Visibility.Visible;
+            PairQrMessage.Text = "QR generated. Scan it from NightSync Android → Scan server QR code.";
+        }
+        catch (Exception ex)
+        {
+            PairQrMessage.Text = "Could not generate QR: " + ex.Message;
+        }
+    }
+
+    private async void AdminSignIn_Click(object sender, RoutedEventArgs e)
+    {
+        AdminStatusText.Text = "Signing in…";
+        _adminToken = null;
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var body = JsonSerializer.Serialize(new { username = AdminUsernameBox.Text.Trim(), password = AdminPasswordBox.Password });
+            using var content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var response = await client.PostAsync("http://127.0.0.1:8787/api/v1/login", content);
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Sign-in failed. Check the owner username/password and server status.");
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var root = doc.RootElement;
+            if (!string.Equals(root.GetProperty("role").GetString(), "admin", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("This account is not an administrator.");
+            if (root.TryGetProperty("must_change_password", out var change) && change.GetBoolean())
+                throw new InvalidOperationException("Change the temporary password in the NightSync client before managing users.");
+            _adminToken = root.GetProperty("token").GetString();
+            AdminPasswordBox.Clear();
+            await LoadManagedUsersAsync();
+        }
+        catch (Exception ex) { AdminStatusText.Text = ex.Message; }
+    }
+
+    private async Task LoadManagedUsersAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_adminToken)) throw new InvalidOperationException("Sign in as an administrator first.");
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
+        using var response = await client.GetAsync("http://127.0.0.1:8787/api/v1/admin/users");
+        var json = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Could not load users (HTTP {(int)response.StatusCode}): {json}");
+        using var doc = JsonDocument.Parse(json);
+        ManagedUsersList.Items.Clear();
+        foreach (var item in doc.RootElement.GetProperty("users").EnumerateArray())
+            ManagedUsersList.Items.Add(new ManagedUser(item.GetProperty("username").GetString() ?? "",
+                item.GetProperty("role").GetString() ?? "member", item.GetProperty("must_change_password").GetBoolean()));
+        AdminStatusText.Text = $"{ManagedUsersList.Items.Count} account(s). Password hashes are never returned.";
+    }
+
+    private async void RefreshUsers_Click(object sender, RoutedEventArgs e)
+    {
+        try { await LoadManagedUsersAsync(); } catch (Exception ex) { AdminStatusText.Text = ex.Message; }
+    }
+
+    private async void CreateUser_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_adminToken)) throw new InvalidOperationException("Sign in as an administrator first.");
+            var username = NewUsernameBox.Text.Trim();
+            var password = NewUserPasswordBox.Password;
+            if (password.Length < 12) throw new InvalidOperationException("Temporary password must be at least 12 characters.");
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
+            var body = JsonSerializer.Serialize(new { username, role = "member", temporary_password = password });
+            using var content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var response = await client.PostAsync("http://127.0.0.1:8787/api/v1/admin/users", content);
+            var result = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Could not create member: " + result);
+            NewUsernameBox.Clear(); NewUserPasswordBox.Clear();
+            await LoadManagedUsersAsync();
+            AdminStatusText.Text = $"Member '{username}' created. They must change the temporary password at first sign-in.";
+        }
+        catch (Exception ex) { AdminStatusText.Text = ex.Message; }
+    }
+
+    private async void ResetUserPassword_Click(object sender, RoutedEventArgs e)
+    {
+        if (ManagedUsersList.SelectedItem is not ManagedUser selected) { AdminStatusText.Text = "Select a user first."; return; }
+        if (MessageBox.Show($"Reset the password for {selected.Username}? Their existing sessions will be invalidated.",
+            "Confirm password reset", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_adminToken)) throw new InvalidOperationException("Sign in as an administrator first.");
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
+            using var response = await client.PostAsync("http://127.0.0.1:8787/api/v1/admin/users/" + Uri.EscapeDataString(selected.Username) + "/reset", null);
+            var result = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Password reset failed: " + result);
+            using var doc = JsonDocument.Parse(result);
+            var temporaryPassword = doc.RootElement.GetProperty("temporary_password").GetString() ?? "";
+            MessageBox.Show($"Temporary password for {selected.Username}:\n\n{temporaryPassword}\n\nCopy it now. It is shown only once; the user must change it at next sign-in.",
+                "Temporary password", MessageBoxButton.OK, MessageBoxImage.Information);
+            await LoadManagedUsersAsync();
+        }
+        catch (Exception ex) { AdminStatusText.Text = ex.Message; }
+    }
+
+    private sealed class ManagedUser
+    {
+        public string Username { get; }
+        public string Role { get; }
+        public bool MustChangePassword { get; }
+        public string DisplayName => $"{Username}  ·  {Role}" + (MustChangePassword ? "  ·  password change required" : "");
+        public ManagedUser(string username, string role, bool mustChangePassword)
+        { Username = username; Role = role; MustChangePassword = mustChangePassword; }
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e) => await StartServerAsync();

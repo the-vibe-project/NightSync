@@ -1,7 +1,7 @@
 <Window x:Class="NightSync.ServerUI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NightSync Server" Height="790" Width="1180" MinHeight="700" MinWidth="1000"
+        Title="NightSync Server" Height="820" Width="1180" MinHeight="560" MinWidth="820"
         WindowStartupLocation="CenterScreen" Background="#070B14">
   <Window.Resources>
     <SolidColorBrush x:Key="SurfaceBrush" Color="#101827"/>
@@ -100,11 +100,52 @@
       </Border>
     </Grid>
 
-    <Grid Grid.Row="2">
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
+      <Grid>
       <Grid.ColumnDefinitions><ColumnDefinition Width="1.08*"/><ColumnDefinition Width="0.92*"/></Grid.ColumnDefinitions>
 
       <StackPanel Margin="0,0,9,0">
         <Border Background="#101827" BorderBrush="#243B57" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,13">
+          <StackPanel>
+            <TextBlock Text="CONNECT A DEVICE" Foreground="#69E5FF" FontSize="9" FontWeight="Bold"/>
+            <TextBlock Text="Connection QR code" Foreground="#ECF7FF" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0"/>
+            <TextBlock Text="Enter the public HTTPS address configured for this server, then generate a QR code for the Android scanner." Foreground="#91A7C1" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10"/>
+            <TextBox x:Name="PairAddressBox" Height="36" VerticalContentAlignment="Center" ToolTip="https://your-hostname.example"/>
+            <Button Content="Generate connection QR" HorizontalAlignment="Left" Padding="15,8" Margin="0,10,0,0" Click="GenerateQr_Click"/>
+            <Image x:Name="PairQrImage" Width="220" Height="220" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,12,0,0" Visibility="Collapsed"/>
+            <TextBlock x:Name="PairQrMessage" Foreground="#91A7C1" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"/>
+            <TextBlock Text="QR contains the HTTPS server address only. It does not create an account, authenticate a device, or enable remote access. Do not use until HTTPS is configured and reachable." Foreground="#D6B77B" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+
+
+                <Border Background="#101827" BorderBrush="#243B57" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,13">
+          <StackPanel>
+            <TextBlock Text="ACCOUNT ADMINISTRATION" Foreground="#A48CFF" FontSize="9" FontWeight="Bold"/>
+            <TextBlock Text="Manage users" Foreground="#ECF7FF" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0"/>
+            <TextBlock Text="Sign in with the server owner account. Admin access is required to create users and reset passwords." Foreground="#91A7C1" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10"/>
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <TextBox x:Name="AdminUsernameBox" Height="36" VerticalContentAlignment="Center" ToolTip="Admin username" Margin="0,0,5,0"/>
+              <PasswordBox x:Name="AdminPasswordBox" Grid.Column="1" Height="36" VerticalContentAlignment="Center" Padding="10,8" Background="#0B1422" Foreground="#ECF7FF" BorderBrush="#29435F" BorderThickness="1" Margin="5,0,0,0"/>
+            </Grid>
+            <WrapPanel Margin="0,9,0,0">
+              <Button Content="Sign in as admin" Click="AdminSignIn_Click" Padding="14,8" Margin="0,0,8,7"/>
+              <Button Content="Refresh users" Click="RefreshUsers_Click" Background="#24364C" Foreground="#D7E8F9" Padding="14,8" Margin="0,0,8,7"/>
+            </WrapPanel>
+            <TextBlock x:Name="AdminStatusText" Foreground="#91A7C1" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,10"/>
+            <TextBlock Text="Create member" Foreground="#CFE2F5" FontSize="11" FontWeight="SemiBold"/>
+            <Grid Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <TextBox x:Name="NewUsernameBox" Height="34" VerticalContentAlignment="Center" ToolTip="New username (3–32 characters)" Margin="0,0,5,0"/>
+              <PasswordBox x:Name="NewUserPasswordBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" Padding="10,8" Background="#0B1422" Foreground="#ECF7FF" BorderBrush="#29435F" BorderThickness="1" ToolTip="Temporary password (at least 12 characters)" Margin="5,0"/>
+              <Button Grid.Column="2" Content="Create member" Click="CreateUser_Click" Padding="12,7" Margin="5,0,0,0"/>
+            </Grid>
+            <TextBlock Text="Select a user below to reset their password. The temporary password is shown once." Foreground="#91A7C1" FontSize="10" TextWrapping="Wrap" Margin="0,10,0,5"/>
+            <ListBox x:Name="ManagedUsersList" Height="125" Background="#09121E" Foreground="#ECF7FF" BorderBrush="#29435F" DisplayMemberPath="DisplayName"/>
+            <Button Content="Reset selected user's password" Click="ResetUserPassword_Click" HorizontalAlignment="Left" Background="#24364C" Foreground="#D7E8F9" Padding="14,8" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+
+<Border Background="#101827" BorderBrush="#243B57" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,13">
           <StackPanel>
             <Grid>
               <StackPanel>
@@ -179,7 +220,8 @@
                    FontFamily="Consolas" FontSize="10" Padding="12"/>
         </DockPanel>
       </Border>
-    </Grid>
+      </Grid>
+    </ScrollViewer>
 
     <TextBlock Grid.Row="3" Text="NIGHTSYNC SERVER  •  A PRODUCT BY THE VIBE PROJECT  •  DEVELOPMENT BUILD" Foreground="#506782" FontSize="9" Margin="2,15,0,0"/>
   </Grid>

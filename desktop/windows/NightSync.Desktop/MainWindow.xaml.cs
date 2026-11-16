@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<ServerProfile> _profiles = new();
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(12) };
+    private readonly HttpClient _healthHttp = new() { Timeout = TimeSpan.FromSeconds(3) };
     private readonly string _profilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NightSync", "servers.json");
     private string _serverAddress = "http://127.0.0.1:8787";
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _serverAddress = AppSession.ServerAddress;
+        ServerAddress.Text = _serverAddress;
         _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AppSession.Token);
         RoleSelector.Visibility = Visibility.Collapsed;
         ServerProfiles.ItemsSource = _profiles;
@@ -44,7 +46,9 @@ public partial class MainWindow : Window
             if (!File.Exists(_profilePath)) return;
             foreach (var p in JsonSerializer.Deserialize<List<ServerProfile>>(File.ReadAllText(_profilePath)) ?? new())
                 _profiles.Add(p);
-            if (_profiles.Count > 0) ServerProfiles.SelectedIndex = 0;
+            var matchingProfile = _profiles.FirstOrDefault(p =>
+                ServerAddressPolicy.IsSameAuthenticatedOrigin(p.Address, AppSession.ServerAddress));
+            if (matchingProfile is not null) ServerProfiles.SelectedItem = matchingProfile;
         }
         catch { ConnectionDetails.Text = "Could not read saved profiles. You can create a new one."; }
     }
@@ -194,7 +198,7 @@ public partial class MainWindow : Window
     {
         for(var i=0;i<timeoutSeconds*2;i++)
         {
-            try{using var response=await _http.GetAsync("http://127.0.0.1:8787/health");if(response.IsSuccessStatusCode==shouldBeOnline)return true;}
+            try{using var response=await _healthHttp.GetAsync("http://127.0.0.1:8787/health");if(response.IsSuccessStatusCode==shouldBeOnline)return true;}
             catch{if(!shouldBeOnline)return true;}
             await Task.Delay(500);
         }
@@ -225,6 +229,12 @@ public partial class MainWindow : Window
     private async void StopServer_Click(object sender,RoutedEventArgs e)=>await StopServerAsync();
     private async Task StopServerAsync()
     {
+        if (!ServerAddressPolicy.IsLocalServerAddress(AppSession.ServerAddress))
+        {
+            HostStatusText.Text = "Local sign-in required";
+            HostDetailsText.Text = "Sign in to the local NightSync server before stopping it. No session token was sent to localhost.";
+            return;
+        }
         try
         {
             using var response=await _http.PostAsync("http://127.0.0.1:8787/api/v1/admin/server/stop",null);
@@ -237,6 +247,12 @@ public partial class MainWindow : Window
     }
     private async void RestartServer_Click(object sender,RoutedEventArgs e)
     {
+        if (!ServerAddressPolicy.IsLocalServerAddress(AppSession.ServerAddress))
+        {
+            HostStatusText.Text = "Local sign-in required";
+            HostDetailsText.Text = "Sign in to the local NightSync server before restarting it. No session token was sent to localhost.";
+            return;
+        }
         try
         {
             await StopServerAsync();
@@ -256,9 +272,9 @@ public partial class MainWindow : Window
     {
         var value = ServerAddress.Text.Trim().TrimEnd('/');
         if (string.IsNullOrWhiteSpace(value)) value = _serverAddress;
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback)))
-            throw new InvalidOperationException("Use HTTPS for remote servers. HTTP is allowed only for localhost testing.");
+        if (!ServerAddressPolicy.IsSameAuthenticatedOrigin(value, AppSession.ServerAddress))
+            throw new InvalidOperationException(
+                "This session token is bound to the server you signed in to. Close NightSync and sign in to the other server before switching.");
         return value;
     }
 
@@ -308,16 +324,26 @@ public partial class MainWindow : Window
     private void ServerProfiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ServerProfiles.SelectedItem is not ServerProfile p) return;
+        if (!ServerAddressPolicy.IsSameAuthenticatedOrigin(p.Address, AppSession.ServerAddress))
+        {
+            ServerAddress.Text = AppSession.ServerAddress;
+            ConnectionStatus.Text = "Sign-in required";
+            ConnectionDetails.Text = "Close NightSync and sign in to the selected server before switching. The current session token was not sent.";
+            return;
+        }
         ServerName.Text = p.Name; ServerAddress.Text = p.Address;
     }
 
     private void SaveServer_Click(object sender, RoutedEventArgs e)
     {
         var name = ServerName.Text.Trim(); var address = ServerAddress.Text.Trim().TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(name) || !Uri.TryCreate(address, UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback)))
+        if (string.IsNullOrWhiteSpace(name) ||
+            !ServerAddressPolicy.IsSameAuthenticatedOrigin(address, AppSession.ServerAddress))
         {
-            MessageBox.Show("Enter a name and a valid HTTPS address. HTTP is allowed only for localhost testing.", "NightSync"); return;
+            MessageBox.Show(
+                "Enter a valid address for the server you signed in to. To use another server, close NightSync and sign in to it first.",
+                "NightSync");
+            return;
         }
         var existing = _profiles.FirstOrDefault(p => string.Equals(p.Address, address, StringComparison.OrdinalIgnoreCase));
         if (existing is null) _profiles.Add(new ServerProfile { Name = name, Address = address }); else existing.Name = name;

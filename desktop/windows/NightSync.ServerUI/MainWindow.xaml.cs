@@ -433,25 +433,19 @@ public partial class MainWindow : Window
         PairQrImage.Source = null;
         PairQrImage.Visibility = Visibility.Collapsed;
         var address = PairAddressBox.Text.Trim().TrimEnd('/');
-        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) ||
-            uri.Scheme != Uri.UriSchemeHttps ||
-            string.IsNullOrWhiteSpace(uri.Host) ||
-            !string.IsNullOrEmpty(uri.UserInfo) ||
-            !string.IsNullOrEmpty(uri.Query) ||
-            !string.IsNullOrEmpty(uri.Fragment))
+        string payload;
+        try
         {
-            PairQrMessage.Text = "Enter a valid HTTPS base address without credentials, query, or fragment.";
+            payload = ConnectionQrPayload.Create(address);
+        }
+        catch (ArgumentException ex)
+        {
+            PairQrMessage.Text = ex.Message;
             return;
         }
 
         try
         {
-            var payload = JsonSerializer.Serialize(new
-            {
-                type = "nightsync-connect",
-                version = 1,
-                url = address
-            });
             using var generator = new QRCodeGenerator();
             using var data = generator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
             var png = new PngByteQRCode(data).GetGraphic(8);
